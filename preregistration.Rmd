@@ -1,0 +1,255 @@
+---
+title           : "Affective Language Processing: Language-driven Evaluation of Character Affect in Morally Loaded Narratives"
+shorttitle      : "Preregistration EMG4"
+date            : "`r Sys.setlocale('LC_TIME', 'C'); format(Sys.time(), '%d\\\\. %B %Y')`"
+
+author: 
+  - name        : Li Kloostra
+    affiliation : 1
+  - name        : Marijn Struiksma
+    affiliation : 1
+  - name        : Marijke Beulen
+    affiliation : 2
+  - name        : Jos van Berkum
+    affiliation : 1
+
+affiliation:
+  - id          : 1
+    institution : Utrecht University, Institute of Language Sciences, Department of Languages, Literature, and Communication, Utrecht University, Utrecht, Netherlands
+  - id          : 2
+    institution : Department of Languages, Literature, and Communication, Utrecht University, Utrecht, Netherlands
+
+output: prereg::prereg_pdf
+---
+
+# Study Information
+
+## Title
+
+`r rmarkdown::metadata$title`
+
+
+## Description
+
+To better understand the relationship between emotion and language we can use electromyography to physiologically measure activation of facial muscles in response to affective language. Two previous studies (‘t Hart et al., 2018; ’t Hart et al., 2019) measured the readers’ frowning behavior, indicated by the corrugator supercilia, while they read affective language in the context of morally loaded narratives. Each narrative was divided into ten segments and followed a similar construction where the protagonist first shows immoral or moral behavior and later experiences an emotion indicated by an adjective. Frowning behavior while reading the affective state adjective appeared to indicate that readers both simulate emotion (more frowning when reading 'frustrated' than 'happy') and evaluate this emotion in the narrative's context (more frowning at 'unfair' events, e.g., a moral character being frustrated, compared to 'fair' events, e.g., an immoral character being frustrated). However, it remains unclear whether simulation and evaluation are simply two separate opposing forces, or whether a more complex process takes place.
+The current study follows up on the previous ones and dives deeper into the evaluation process with a focus on fairness judgement. We will use the same narratives but add a rating task (‘How good/bad is the character’s behavior?’) halfway through the story. Asking participants to give a conscious judgement is hypothesized to increases participants’ tendency to evaluate what they read. We will record activity of the corrugator muscle with EMG equipment during the presentation of these stories, in particular the segments that contain the protagonists’ (im)moral behavior and the affective state adjective. After the EMG experiment, we present the narratives again but as a whole and ask participants to rate the fairness of the endings. A last short questionnaire will ask participants to briefly state what they take into consideration when rating the endings’ fairness and rate some general statements about fairness and judgment. These questionnaires serve to obtain insight into conscious judgement and evaluation of fairness.
+
+
+# Design Plan
+
+Our hypotheses are based on the multiple-driver model, in which language-driven simulation and evaluation are distinguished as two separate forces. Results from the previous studies by ‘t Hart et al. (2018) and ‘t Hart et al. (2019) supported the theory that these forces can independently, and sometimes in opposition of each other, influence corrugator activity. The current experiment uses stimuli identical to the 2019 study, but added an embedded rating task (see Table 1 below for an example). 
+![Table 1 Example narrative Source: 't Hart et al. 2019.](images/example_stimulus)
+
+Conditions: crossing character morality with the adjective segment results in four possible conditions: moral-positive, moral-negative, immoral-positive, and immoral-negative. (Note that, for continuity of the story, the affect reason is always congruent with the valence of the affective state adjective.)
+
+Corrugator activity during reading will be expressed as a percentage of the baseline activity (i.e., during the neutral distractor image presented before every story). Activation while reading will always be higher than baseline activation as the reader has to focus, in the previous studies by ‘t Hart et al. (2018) and ‘t Hart et al. (2019) this was on average around 115% during the introductory segment (so before character morality was presented). In the various conditions, corrugator activation starts to increase or decrease relative to this general-reading-baseline.
+
+## Hypotheses
+
+In line with the previous work (‘t Hart et al. (2019)) we expect a similar pattern at the character manipulation segment, i.e. an increase in corrugator activity for immoral characters, compared to a baseline activity or slight decrease for moral characters.
+
+Our hypotheses regarding corrugator activity during the affective state adjective segment, compared to our reading-baseline are the following:
+
+1) In the moral-positive condition (good Mark-happy), we expect corrugator activity to decrease due to evaluation (fair, deserved). This decrease will be enhanced by simulation of the positive emotion. 
+2) In the moral-negative condition (good Mark-frustrated), we expect corrugator activity to increase due to evaluation (unfair, undeserved). This increase will be enhanced by simulation of the negative emotion. 
+3) In the immoral-positive condition (bad Mark-happy), we expect corrugator activity to increase due to due to evaluation (unfair, undeserved). This increase will be opposed by simulation of the positive emotion. 
+4) In the immoral-negative condition (bad Mark-frustrated), we expect corrugator activity to decrease due to evaluation (fair, deserved). This decrease will be opposed by simulation of the negative emotion.
+
+Following the multiple-driver model, we hypothesize that the effects of simulation and evaluation will join forces in the moral conditions (good Mark), resulting in a large decrease or increase in activity. Our hypothesis for the immoral conditions (bad Mark) is that simulation and evaluation forces will oppose each other, which is also what previous findings suggest, however we now expect that the rating task increases the evaluation effect. As a result, we now expect to find differential corrugator activity in the two immoral conditions, whereas the previous two studies found no clear difference (‘t Hart et al., 2018; ‘t Hart et al., 2019).
+
+For the final segment, the affect reason, we expect a continuation of the pattern that started at the affective state adjective. As we found in our 2019 paper this pattern could possibly be enhanced.
+
+
+
+## Study type
+
+**Experiment**
+
+The experiment will use facial electromyography (fEMG) to measure corrugator muscle activity of participants  while they are presented with visual stimuli: short narratives divided into several segments. Each narrative contains a manipulation of character morality (main character's good/bad behavior), a good/bad rating scale regarding that behavior, and a critical event (main character's affective state in a later segment). 
+The zygomatic major muscle is measured for exploratory reasons.
+Also for exploratory analyses, all participants will fill out 2 questionnaires after the fEMG experiment. The first explores to which extent conscious fairness judgment of the narratives' ending correlates with the participants' facial muscle activity, while the other one explores individual differences.
+
+
+
+## Blinding
+
+Participants know that they will read about emotion-evoking language but are not informed of the fact that we use moral manipulation and its effect on evaluation. Due to the nature of the stimuli they could notice that we focus on moral behavior, fairness, and judgment. However, the participants cannot predict whether the character will show moral or immoral behavior nor whether they will experience a positive or negative event later on.
+
+
+## Study design
+
+We use the same narratives as used in ‘t Hart et al. (2019) for our stimuli, but with an added embedded rating task after every character morality segment and occasionally a comprehension question after the last segment.
+
+These stimuli consist of 64 narratives with four variants of each, as we implement a fully crossed 2 x 2 within subjects design: character morality (moral vs. immoral) and critical event (positive vs. negative). We will generate four pseudo-randomized lists with 64 narratives so that: A) per list, each narrative will occur once in one of the four variants; B) all participant will see 16 narratives in each of the four conditions (8 with a male and 8 with a female main character); C) average item properties in each list will be similar in terms of pro-sociality and expectedness; D) two lists will have the reverse order of the two other lists; E) each narrative occurs with both moral and immoral and both female and male main characters across the four different lists, with the exception of nine narratives that have fixed gender due to stereotypical behavioral expectations
+
+
+## Randomization
+
+Each participant will be assigned to one of the four pseudo-randomized stimuli lists in the order of testing: the first four participants will get list 1 through list 4 respectively, so the fifth participant will get list 1 again.
+
+
+# Sampling Plan
+
+
+Our study will use the participant database from Utrecht Institute of Linguistics just like the previous fEMG studies (’t Hart et al., 2018; ’t Hart et al., 2019) to find 60 participants. Our inclusion and exclusion criteria are identical as well (details below).
+
+## Existing data
+
+**Registration prior to any human observation of the data**. As of the date of submission, data collection has started but the data have not yet been quantified, constructed, observed, or reported by anyone - including individuals that are not associated with the proposed study.
+
+
+## Explanation of existing data
+
+Data collection started on June 2 2022 as part of an RMa thesis project. 
+
+
+## Data collection procedures
+
+Our study will use the same participant database (from Utrecht Institute of Linguistics) as the previous fEMG studies (‘t Hart et al., 2018; ’t Hart et al., 2019) that we follow up with this current study. Participants must be native Dutch students between the ages of 18 and 30 who have no dyslexia and no botox treatments in the face. Those who have participated in any of the previous studies with (variants of) our stimuli or attended lectures or presentations about the purpose of this study are excluded as participants. Participants will receive a compensation of €20 (€10 per hour) for participation in this experiment.
+
+
+## Sample size
+
+Out target sample size is 60 participants. 
+
+
+## Sample size rationale
+
+For consistency and comparability with the previous experiments, we aim to collect data from 60 participants. 
+
+
+## Stopping rule
+
+This research is part of the thesis project of Li Kloostra. She will stop collecting data when we have 40 participants or after July 8. We will then continue data collection until we have 60 participants.
+
+
+# Variables
+
+The dependent variable is the corrugator supercilii activity as indexed by EMG, measured with facial electrodes during the entire trial. For the analysis we will focus on three segments. 
+1) Character morality segment: 0-5s after the onset of the segment.
+2) Affective state adjective segment: 0-1s after the onset of the segment.
+3) Affect reason segment: 0-2.5s after the onset of the segment.
+
+Additionally, we will measure zygomatic major activity with fEMG as an exploratory dependent variable.
+
+Exploratory:
+The ratings on the embedded rating task (good/bad action of character, during fEMG recording) and in the first questionnaire (fairness of the narratives) are exploratory dependent variables. These will be used for exploratory analysis to find possible correlations with frowning activity, as they may also be dependent on the conditions of the stimuli.
+
+
+## Manipulated variables
+
+We manipulate the character morality by describing a morally good or bad action that the main character performs. The crucial event is the emotion of the main character and is indicated by either a positive or negative adjective. Our independent variables therefore, are character morality (moral vs immoral) and critical event (positive vs negative adjective). 
+
+
+## Measured variables
+
+The main variable that we measure is frowning activity as indexed by fEMG electrodes on the corrugator supercilii. For exploratory purposes, we will also measure zygomatic major activity, indexed by fEMG. We compare baseline muscle activity (i.e., during the neutral distractor image) to activity during reading, expressed as a percentage.
+
+Exploratory:
+With the embedded rating task as a third segment (i.e., presented immediately after character morality) we measure participants’ judgement of the characters’ action. We will measure this by asking participants ‘How good was this action’ (on a scale of 1-7, 1 being 'very bad', 7 being 'very good').
+
+The first online questionnaire measures how fair the participants’ rate the endings of the same stories that they read during the EMG recording, but this time they are presented in their entirety. We will measure this by asking participants ‘How fair did you find the ending of this story?’ (on a scale of 1-7, 1 being 'very fair', 7 being 'very unfair').
+A second online questionnaire contains more qualitative data: two open questions on what participants took into consideration during the fairness rating, and five-point rating scales (1 being 'completely true', 5 being 'completely not true') to indicate to which extent the participants agree with general statements about empathy, context, (un)pleasantness, (un)fairness, and surprise.
+
+An exit questionnaire serves to obtain some background and demographic information that might influence the results as well, such as gender, age, difficulty of the experiment, level of concentration, and hours slept.
+
+
+## Indices
+
+To analyze corrugator activation at the character morality and critical event segments, the activation during those segments is indicated as a percentage relative to baseline activation. 
+To obtain a baseline for corrugator activity, we will use visual inspection to select maximally long epochs of artifact-free baseline signal (i.e. "quiet signal" free of extreme bursts) of 500 ms or longer from the 2,000 ms of the neutral distractor image.
+
+We will compute 100ms bins for each segment to enable growth curve analyses, similar to the analyses from 't Hart et. al (2019).
+
+# Analysis Plan
+<!-- You may describe one or more confirmatory analysis in this preregistration. Please remember that all analyses specified below must be reported in the final article, and any additional analyses must be noted as exploratory or hypothesis generating.
+
+A confirmatory analysis plan must state up front which variables are predictors (independent) and which are the outcomes (dependent), otherwise it is an exploratory analysis. You are allowed to describe any exploratory work here, but a clear confirmatory analysis is required. -->
+
+Prior to the statistical analyses the data have to be preprocessed. The raw EMG-data will be filtered with a band-pass of 20–500 Hz (48 dB/octave roll-off) and a notch filter at 50 Hz to remove common artifacts (see van Boxtel 2010), followed by signal rectification and segmentation per trial, all using BrainVision Analyzer 2 (BrainProducts, Gilching). We will use visual inspection to select maximally long epochs of “quiet signal”.
+
+After baseline epoch selection, the data will be exported to MatLab for further segmentation time-locked to the onset of the character manipulation (segment length 5000 ms), the affective state adjective (segment length 1,000 ms), and the affect reason (segment length 2500 ms). Each of the resulting EMG segments will be partitioned into consecutive 100-ms bins, known to strike a good balance between sufficient temporal resolution and sufficient random error reduction (van Boxtel, 2010). To reduce random variance both within and between individuals (van Boxtel, 2010), average EMG activity was expressed as a percentage of the pre-stimulus baseline epoch activity level. These data will be stored in a textfile for further analysis.
+
+We will also use MatLab to extract rating responses that were given after each character morality segment. The ratings will added to the analysis file.
+
+The two online and exit questionnaires were presented using Qualtrics. The results will be exported in a csv-file, which can be used for further analysis.
+
+
+## Statistical models
+
+We will perform a Multilevel Linear Model analysis on the corrugator activity during the character morality and critical event segments. We start with an intercept only model, with subject ID and item as random effects to account for variation between-subjects and between-items (stories), and add two fixed coefficients. These are morality (moral or immoral) and critical event valence (positive or negative). Most importantly, we look for an interaction between these fixed coefficients.
+
+The three segments will be analyzed separately using the lme4 packare in R. The item- and participant variance are estimated simultaneously, resulting in a cross-classified model (Quené & Van den Bergh, 2004; Quené & Van den Bergh, 2008). For each segment, we will construct models for the corrugator data by iteratively adding potentially relevant components and testing for significant model improvement at each addition (using the likelihood ratio (-2LL difference chi-square) test, p < .05). We will only keep components whose addition explain a significant amount of variance or are necessary to test hypothesized interactions (Winter, 2020). Components that do not significantly improve the model will be dropped in the next iteration (H. van den Bergh, personal communication and grounded in Seasholtz & Kowalski (1993). 
+
+Because we are interested in average corrugator activity and its development over time, we used a growth curve model approach (Peck & Devore, 2008; Mirman, 2015). We will first model participants and items as random factors. To assess the effect of our manipulations on the average activation across an entire segment, we subsequently add character morality (moral vs. immoral) as a fixed factor in the model for the character manipulation segment, and character morality (moral vs. immoral), affective state adjective/reason valence (positive vs. negative), and the 2-way interaction as fixed factors in the model for the affective state adjective and affect reason segments. Afterwards the interaction will be added to the random part of the model as a random slope. Next, linear, quadratic, and cubic trends will be added as covariates in the fixed part of the model, and if significantly improving the model also to the random part, see below. Time trend (e.g., linear) components will be added per condition to maintain flexibility in building the model, and to avoid forcing the model to fit, for example, a linear trend for all conditions when only one condition contains a significant linear component. All trend components will be centered to avoid correlation between trends (fixed effects final model intercepts therefore reflect the average corrugator activity across the entire segment, not the level at which corrugator activity intercepts the y-axis). By using trends up to the cubic component, we achieve some flexibility to fit responses without over-fitting or losing explanatory power (Mirman, 2015). Because we are particularly interested in temporal developments, we will add random slopes for subjects for each time trend that initially improves the model (as well as standard random intercepts for subject and item). 
+
+To facilitate interpretation, in the final model for the affective state adjective/reason (if significant) the fixed factors character morality and affective state adjective/reason valence will be included as a single condition factor, which allows for a no-intercept model where the estimates of the conditions reflect the segment average corrugator activation. This re-parametrization does not change the -2LL value, and as such still represents the optimal model. While trend components will be fitted with a resolution of 100 ms, the associated parameter estimates (e.g., b for a linear slope) are reported on a 1-s basis. 
+
+For the final model, custom two-tailed t-tests will be used to assess theoretically relevant pairwise comparisons between condition averages. Theoretically relevant comparisons between two (e.g., linear) condition-specific trend components will be done by explicitly comparing the difference between associated regression weights (b1–b2) in a dedicated two-tailed t-test in case both components had been kept in the model, and by resorting to the simple fixed effects t-test for just one of them (e.g., b1) when the other component is not included in the final model (which effectively defined b2 as 0). 
+
+
+## Transformations
+
+See above. All trend components will be centered to avoid correlation between trends.
+
+
+## Inference criteria
+
+We will use the standard p<.05 criteria for determining if the parameters and the post hoc tests suggest that the results are significantly different from those expected if the null hypothesis were correct. The post-hoc tests will be adjusted for multiple comparisons.
+
+
+## Data exclusion
+
+1)	If a suficient baseline could not be found, the trial will be excluded from analysis.
+
+Exclusion criteria for exploratory analyses: 
+1)	If participants do not respond according to the predicted pattern on the embedded rating task, for instance less than 50% of 'unpredicted' ratings, they might be excluded from analysis. The unpredicted pattern is that participants rate immoral behavior as ‘good’ and moral behavior as 'bad'.
+2)	If participants answer more than 6/12 comprehension questions incorrectly, they might be excluded from analysis.
+3)	If participants indicate in the exit questionnaire/debriefing that they very often did not have enough time to read the segments, they might be excluded from analysis.
+
+
+## Missing data
+
+If a subject does not complete the experiment, we will check whether it is possible to use the data from trials up until that point. 
+
+
+## Exploratory analyses (optional)
+
+For exploratory reasons, we also look at:
+1) correlations between the EMG signals and the ratings on the embedded rating task and ratings in the questionnaires:
+1.1) Embedded rating task X  EMG activity at character morality/critical event/affect reason
+1.2) EMG activity at critical event and affect reason X fairness rating
+
+
+# Other
+
+## Other (Optional)
+
+This project is part of Li Kloostra's internship/thesis project within the Research Master Linguistics (Utrecht University). 
+
+
+# References
+## 
+t Hart, B., Struiksma, M. E., van Boxtel, A., & Van Berkum, J. J. (2018). Emotion in stories: Facial EMG evidence for both mental simulation and moral evaluation. Frontiers in psychology, 9, 613.
+
+t Hart, B., Struiksma, M. E., van Boxtel, A., & Van Berkum, J. J. (2019). Tracking affective language comprehension: Simulating and evaluating character affect in morally loaded narratives. Frontiers in psychology, 10, 318.
+
+Mirman, D. (2015). Growth Curve Analysis. Philadelphia, PA: Drexel University. Available at: www.danmirman.org
+
+Peck, R., and Devore, J. (2008). Statistics: The Exploration and Analysis of Data. 6th ed.. London, United Kingdom: Thomson Higher Learning. 
+
+Quené, H., & van den Bergh, H. (2004). On Multi-Level Modeling of Data from Repeated Measures Designs: a Tutorial. Speech Communication, 43, 103–121.
+
+Quené, H., & van den Bergh, H. (2008). Examples of Mixed-Effects Modeling with Crossed Random Effects and with Binomial Data. J. Mem. Lang. 59, 413–425.
+
+Seasholtz, M. B., & Kowalski, B. (1993). The parsimony principle applied to multivariate calibration. Analytica Chimica Acta, 277(2), 165-177.
+
+Van Boxtel, A. (2010, August). Facial EMG as a tool for inferring affective states. In Proceedings of measuring behavior (Vol. 7, pp. 104-108).
+
+Winter, B. (2020). Statistics for Linguists: An Introduction Using R. New York: Routledge.
+
+\vspace{-2pc}
+\setlength{\parindent}{-0.5in}
+\setlength{\leftskip}{-1in}
+\setlength{\parskip}{8pt}
+\noindent
