@@ -161,7 +161,7 @@ The script yields four different text files, one for each segment and the whole 
 
 The script prepares the EMG4 data for the Multilevel analysis. It starts with the output from Matlab (saved in xlsx) EMG4_Bin_whole_trial_60sjs_13-Mar-2023.xlsx. First we performed a number of checks, e.g. number of trials, number of participants, outliers.
 
-Then the results for each segment are loaded. Preprocessing is needed to transform the data from wide to long format based on the 100ms bins for the corrugator response. The relevant variables are computed for the different conditions. Another MoralityValence variable is computed to estimate the final no-intercept model. Furthermore, we've computed linear, quadratic and cubic time trends for each condition (moral, immoral). Finally, the trials were filtered based on incCorr and incZygo, which was determined during the baseline selection phase. The preprocessed data is then saved for further analysis in the WORCS_EMG4/data/ folder:
+Then the results for each segment are loaded. Preprocessing is needed to transform the data from wide to long format based on the 100ms bins for the corrugator response. The relevant variables are computed for the different conditions. Another MoralityValence variable is computed for viualization purposes. Furthermore, we've computed linear, quadratic and cubic time trends for each condition (moral, immoral). Finally, the trials were filtered based on incCorr and incZygo, which was determined during the baseline selection phase. The preprocessed data is then saved for further analysis in the WORCS_EMG4/data/ folder:
 - EMG4_morality_trial_data_27-Jun-2023_60pp_preprocessed.csv
 - EMG4_state_adjective_trial_data_27-Jun-2023_60pp_preprocessed.csv
 - EMG4_neutral_trial_data_08-Aug-2023_60pp_preprocessed.csv
@@ -174,7 +174,7 @@ The script runs the statistical models as described in the preregistration. It t
 - EMG4_state_adjective_trial_data_for_MLM_analysis_60sjs.RData
 - EMG4_affect_reason_trial_data_for_MLM_analysis_60sjs.RData
 
-Following the preregistration we build the multilevel growth curve models for each segment followed by post-hoc analyses. The best model is stored in WORCS_EMG4/results/:
+Following the preregistration we built the multilevel growth curve models for each segment followed by post-hoc analyses. The best model is stored in WORCS_EMG4/results/:
 - EMG4_Morality_final_model_60sjs.RData
 - EMG4_StateAdjective_final_model_60sjs.RData
 - EMG4_AffectReason_final_model_60sjs.RData
