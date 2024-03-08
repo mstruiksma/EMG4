@@ -1,0 +1,536 @@
+---
+title: "EMG4 MLM analyses"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: 
+  word_document:
+    reference_docx: EMG4_template.docx
+    toc: yes
+    fig_width: 5
+    fig_height: 3.5
+    # We created a word document to implement the html table of the LMM results. We created a pdf from the word document
+  # pdf_document:
+  #   toc: yes
+  #   fig_width: 5
+  #   fig_height: 3.5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+
+```
+
+```{r packages, echo=FALSE, message=FALSE, warning=FALSE }
+library(readxl)
+library(multcomp)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(sjPlot)
+library(tidyverse)
+library(RColorBrewer)
+library(gmodels)
+library(ggeffects)  
+
+```
+
+
+## Overview
+
+This document contains the statistical analyses of the EMG4 data.
+
+```{r Load preprocessed EMG data and prepare for MLM analysis, eval=FALSE, echo=FALSE, include=FALSE}
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_27-Jun-2023_60pp_preprocessed.RData"))
+mor_data <- mor_long_inc
+
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_27-Jun-2023_60pp_preprocessed.RData"))
+adj_data <- adj_long_inc
+
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_27-Jun-2023_60pp_preprocessed.RData"))
+reason_data <- reason_long_inc
+
+```
+
+```{r eval=FALSE, echo=FALSE, include=FALSE}
+#Create factor variables:
+# moral(102)* pos(104), neg(105) = 608, 710 
+# immoral(103)* pos(104), neg(105) = 712, 815
+
+mor_data <- mor_data %>% 
+  mutate_at(c("MoralityCondition", "StateAdjectiveCondition", "MoralityValence"), as.factor) %>%
+  mutate(MoralityCondition = recode(MoralityCondition, "102" = "Moral", "103" = "Immoral")) %>%
+  mutate(StateAdjectiveCondition = recode(StateAdjectiveCondition, "104" = "Positive", "105" = "Negative")) %>% 
+  mutate(MoralityValence = recode(MoralityValence, "608" = "Moral-Positive", "710" = "Moral-Negative",
+                                  "712" = "Immoral-Positive", "815" = "Immoral-Negative"))
+adj_data <- adj_data %>% 
+  mutate_at(c("MoralityCondition", "StateAdjectiveCondition", "MoralityValence"), as.factor) %>%
+  mutate(MoralityCondition = recode(MoralityCondition, "102" = "Moral", "103" = "Immoral")) %>%
+  mutate(StateAdjectiveCondition = recode(StateAdjectiveCondition, "104" = "Positive", "105" = "Negative")) %>% 
+  mutate(MoralityValence = recode(MoralityValence, "608" = "Moral-Positive", "710" = "Moral-Negative",
+                                  "712" = "Immoral-Positive", "815" = "Immoral-Negative"))
+
+reason_data <- reason_data %>% 
+  mutate_at(c("MoralityCondition", "StateAdjectiveCondition", "MoralityValence"), as.factor) %>%
+  mutate(MoralityCondition = recode(MoralityCondition, "102" = "Moral", "103" = "Immoral")) %>%
+  mutate(StateAdjectiveCondition = recode(StateAdjectiveCondition, "104" = "Positive", "105" = "Negative")) %>% 
+  mutate(MoralityValence = recode(MoralityValence, "608" = "Moral-Positive", "710" = "Moral-Negative",
+                                  "712" = "Immoral-Positive", "815" = "Immoral-Negative"))
+
+```
+
+```{r eval=FALSE, echo=FALSE, include=FALSE}
+write_csv(mor_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_for_MLM_analysis_60sjs.csv"))
+save(mor_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_for_MLM_analysis_60sjs.RData"))
+
+write_csv(adj_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_for_MLM_analysis_60sjs.csv"))
+save(adj_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_for_MLM_analysis_60sjs.RData"))
+
+write_csv(reason_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_for_MLM_analysis_60sjs.csv"))
+save(reason_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_for_MLM_analysis_60sjs.RData"))
+
+```
+
+## Building the models
+Because our main focus was on the development of the corrugator response over time, we used a growth curve model approach (Mirman, 2015; Peck and Devore, 2008) with specific analysis designs that were optimized for assessing and comparing time trends across conditions. We first modelled participants and items as random factors. To assess the effect of our manipulations on the average activation across an entire segment, we first added morality dimension (moral vs. immoral) as a fixed factor in the model for the character manipulation segment, and morality dimension (moral vs. immoral), critical event valence (positive vs. negative) and interaction as fixed factors in the model for the affective state adjective and affect reason segments. Afterwards the interaction was added to the random part of the model as a random slope. 
+
+Next, linear, quadratic, and cubic trends will be added as covariates in the fixed part of the model, and if significantly improving the model also to the random part, see below. Time trend (e.g. linear) components will be added per condition to maintain flexibility in building the model, and to avoid forcing the model to fit, for example, a linear trend for all conditions when only one condition contains a significant linear component. All trend components will be centered to avoid correlation between trends (fixed effects final model intercepts therefore reflect the average corrugator activity across the entire segment, not the level at which corrugator activity intercepts the y-axis). By using trends up to the cubic component, we achieve some flexibility to fit responses without over-fitting or losing explanatory power (Mirman, 2015). Because we are particularly interested in temporal developments, we will add random slopes for subjects for each time trend that initially improves the model (as well as standard random intercepts for subject and item).
+
+# 1. Morality segment
+
+## variables:
+dependent variable: Morality_response
+random factors: sjCode, Markertrial  
+independent variables: Morality (102=moral, 103=immoral), StateAdjectiveCondition (104=positive, 105=negative), t1_ (continuous linear trend per condition, will be centered for easier interpretation of the estimates), t2_ (continuous quadratic trend per condition, will be centered for easier interpretation of the estimates) , t3_ (continuous cubic trend per condition, will be centered for easier interpretation of the estimates)
+
+```{r load Morality MLM data, eval=TRUE, echo=FALSE} 
+#load data for analysis, previous steps can be skipped.
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_for_MLM_analysis_60sjs.RData"))
+```
+
+```{r building the Morality models, eval=FALSE, echo=FALSE}
+#empty model
+MoralityM1<-lmer(Morality_response ~ (1|sjCode),data=mor_data,REML = F);summary(MoralityM1)
+MoralityM2<-lmer(Morality_response ~ (1|sjCode)+(1|Markertrial),data=mor_data,REML = F);summary(MoralityM2)
+anova(MoralityM1,MoralityM2) #p<.001 so MoralityM2 is a better model
+
+MoralityM1js<-lmer(Morality_response ~ (1|sjCode),data=justice_mor_data,REML = F);summary(MoralityM1js)
+MoralityM2js<-lmer(Morality_response ~ (1|sjCode)+(1|Markertrial),data=justice_mor_data,REML = F);summary(MoralityM2js)
+anova(MoralityM1js,MoralityM2js) #p<.001 so MoralityM2 is a better model
+
+
+# add morality dimension fixed
+MoralityM3<-lmer(Morality_response ~ MoralityCondition +(1|sjCode)+(1|Markertrial),data=mor_data,REML = F);summary(MoralityM3)
+anova(MoralityM2,MoralityM3) #p<.001 so MoralityM3 is a better model
+
+MoralityM3js<-lmer(Morality_response ~ MoralityCondition +(1|sjCode)+(1|Markertrial),data=justice_mor_data,REML = F);summary(MoralityM3js)
+anova(MoralityM2js,MoralityM3js) #p<.001 so MoralityM3 is a better model
+
+# add morality dimension Random
+MoralityM4 <- lmer(Morality_response ~ MoralityCondition +   
+                 (1 + MoralityCondition|sjCode)+(1|Markertrial),data=mor_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"));summary(MoralityM4)
+anova(MoralityM3,MoralityM4) #p<.001 so MoralityM4 is a better model
+
+MoralityM4js <- lmer(Morality_response ~ MoralityCondition +   
+                 (1 + MoralityCondition|sjCode)+(1|Markertrial),data=justice_mor_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"));summary(MoralityM4js)
+anova(MoralityM3js,MoralityM4js) #p<.001 so MoralityM4 is a better model
+
+
+# add Immoral Linear Fixed
+MoralityM5 <- update(MoralityM4, .~. +t1_immoral );summary(MoralityM5)
+anova(MoralityM4,MoralityM5) #p<.001 so MoralityM5 is a better model
+
+MoralityM5js <- update(MoralityM4js, .~. +t1_immoral );summary(MoralityM5js)
+anova(MoralityM4js,MoralityM5js) #p<.001 so MoralityM5 is a better model
+
+# add Moral Linear Fixed
+MoralityM6 <- update(MoralityM5, .~. +t1_moral );summary(MoralityM6)
+anova(MoralityM5,MoralityM6) #p<.001 so MoralityM6 is a better model
+
+MoralityM6js <- update(MoralityM5js, .~. +t1_moral );summary(MoralityM6js)
+anova(MoralityM5js,MoralityM6js) #p<.001 so MoralityM6 is a better model
+
+# add Immoral Linear Random
+MoralityM7 <- lmer(Morality_response ~ MoralityCondition + t1_immoral + t1_moral +  
+                      (1 + t1_immoral + MoralityCondition|sjCode)+(1|Markertrial),data=mor_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+#does not converge so MoralityM6 is a better model
+
+# add Moral Linear Random
+MoralityM8 <- lmer(Morality_response ~ MoralityCondition + t1_immoral + t1_moral +  
+                      (1 + t1_moral + MoralityCondition|sjCode)+(1|Markertrial),data=mor_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+#does not converge so MoralityM6 is a better model
+
+# add Immoral Quadratic Fixed
+MoralityM9 <- update(MoralityM6, .~. +t2_immoral );summary(MoralityM9)
+anova(MoralityM6,MoralityM9) #p<.001 so MoralityM9 is a better model
+
+MoralityM9js <- update(MoralityM6js, .~. +t2_immoral );summary(MoralityM9js)
+anova(MoralityM6js,MoralityM9js) #p<.001 so MoralityM9 is a better model
+
+
+# add Moral Quadratic Fixed
+MoralityM10 <- update(MoralityM9, .~. +t2_moral );summary(MoralityM10)
+anova(MoralityM9,MoralityM10) #p=.92 not sig so MoralityM9 is a better model
+
+MoralityM10js <- update(MoralityM9js, .~. +t2_moral );summary(MoralityM10js)
+anova(MoralityM9js,MoralityM10js) #p=.92 not sig so MoralityM9 is a better model
+
+# add Immoral Quadratic Random
+MoralityM11 <- lmer(Morality_response ~ MoralityCondition + t1_immoral + t1_moral + t2_immoral + 
+                      (1 + t2_immoral + MoralityCondition|sjCode)+(1|Markertrial),data=mor_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+#does not converge so MoralityM9 is a better model
+
+# add Immoral Cube Fixed
+MoralityM12 <- update(MoralityM9, .~. +t3_immoral );summary(MoralityM12)
+anova(MoralityM9,MoralityM12) #p<.01 so MoralityM12 is a better model
+
+MoralityM12js <- update(MoralityM9js, .~. +t3_immoral );summary(MoralityM12js)
+anova(MoralityM9js,MoralityM12js) #p<.01 so MoralityM12 is a better model
+
+# add Moral Cube Fixed
+MoralityM13 <- update(MoralityM12, .~. +t3_moral );summary(MoralityM13)
+anova(MoralityM12,MoralityM13) #p=.15 not sig so MoralityM12 is a better model
+
+# add Immoral Cube Random
+MoralityM14 <- lmer(Morality_response ~ MoralityCondition + t1_immoral + t1_moral + t2_immoral + t3_immoral + 
+                      (1 + t3_immoral + MoralityCondition|sjCode)+(1|Markertrial),data=mor_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"))
+#does not converge so MoralityM12 is the best model
+```
+
+```{r save the best Morality model, eval=FALSE, echo=FALSE}
+save(MoralityM12, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_Morality_final_model_60sjs.RData"))
+
+```
+
+### Summary of best Model MoralityM12
+The best model is Model 12: Morality_response ~ MoralityCondition + t1_immoral + t1_moral + t2_immoral + t3_immoral + (1 + MoralityCondition | sjCode) + (1 | Markertrial). This is the summary of that model.
+
+```{r}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_Morality_final_model_60sjs.RData"))
+
+summary(MoralityM12)
+```
+
+
+```{r Morality table, eval=FALSE, echo=FALSE, include=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(MoralityM12,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "Morality Manipulation Segment",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM of Morality Manipulation segment." )
+
+```
+
+### Post-hoc analyses
+
+```{r post-hoc explore the Morality manipulation, eval=TRUE}
+MoralityM12_emmeans_contrasts = emmeans(MoralityM12,specs = tukey ~ MoralityCondition, lmer.df = "satterthwaite", lmerTest.limit=187000, simple = "each", combine = T, adjust = "sidak", reverse = T);
+MoralityM12_emmeans_contrasts$emmeans
+MoralityM12_emmeans_contrasts$contrasts %>%
+     summary(infer = TRUE)
+```
+
+Contrasts are redundant, as this is already given in the summary of the model. Also the comparison between t1_immoral and t1_moral is redundant since the estimates are tested against 0 and their signs differ, therefore the difference between t1_immoral and t1_moral is also significantly different.
+
+
+
+# 2. State Adjective segment
+
+## variables:
+dependent variable: StateAdjective_response
+random factors: sjCode, Markertrial  
+independent variables: Morality (102=moral, 103=immoral), StateAdjectiveCondition (104=positive, 105=negative), t1_ (continuous linear trend per condition, will be centered for easier interpretation of the estimates), t2_ (continuous quadratic trend per condition, will be centered for easier interpretation of the estimates) , t3_ (continuous cubic trend per condition, will be centered for easier interpretation of the estimates)
+
+```{r load StateAdjective MLM data, eval=TRUE, echo=FALSE} 
+#load data for analysis, previous steps can be skipped.
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_for_MLM_analysis_60sjs.RData"))
+
+```
+
+```{r building the StateAdjective models, eval=FALSE, echo=FALSE, include=FALSE}
+#empty model
+AdjectiveM1<-lmer(StateAdjective_response ~ (1|sjCode),data=adj_data,REML = F);summary(AdjectiveM1)
+AdjectiveM2<-lmer(StateAdjective_response ~ (1|sjCode)+(1|Markertrial),data=adj_data,REML = F);summary(AdjectiveM2)
+anova(AdjectiveM1,AdjectiveM2) #p<.001 so AdjectiveM2 is a better model
+
+# add morality dimension fixed
+AdjectiveM3<-lmer(StateAdjective_response ~ MoralityCondition +(1|sjCode)+(1|Markertrial),data=adj_data,REML = F);summary(AdjectiveM3)
+anova(AdjectiveM2,AdjectiveM3) #p<.001 so AdjectiveM3 is a better model
+
+# add state adjective condition fixed
+AdjectiveM4 <- update(AdjectiveM3, .~.+ StateAdjectiveCondition);summary(AdjectiveM4)
+anova(AdjectiveM3,AdjectiveM4) #p<.001 so AdjectiveM4 is a better model
+
+# add morality dimension*state adjective condition Fixed
+AdjectiveM5 <- update(AdjectiveM4, .~.+ MoralityCondition:StateAdjectiveCondition);summary(AdjectiveM5)
+anova(AdjectiveM4,AdjectiveM5) #p<.001 so AdjectiveM5 is a better model
+
+# add morality dimension*state adjective condition Random
+AdjectiveM6 <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition +   
+                 (1 + MoralityCondition:StateAdjectiveCondition|sjCode)+(1|Markertrial),data=adj_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"));summary(AdjectiveM6)
+#does not converge so AdjectiveM5 is a better model
+
+# add Immoral_neg Linear Fixed
+AdjectiveM7 <- update(AdjectiveM5, .~. +t1_immoral_neg );summary(AdjectiveM7)
+anova(AdjectiveM5,AdjectiveM7) #p=.56 not sig so AdjectiveM5 is a better model
+
+# add Immoral_pos Linear Fixed
+AdjectiveM8 <- update(AdjectiveM5, .~. +t1_immoral_pos );summary(AdjectiveM8)
+anova(AdjectiveM5,AdjectiveM8) #p=.69 not sig so AdjectiveM5 is a better model
+
+# add Moral_neg Linear Fixed
+AdjectiveM9 <- update(AdjectiveM5, .~. +t1_moral_neg );summary(AdjectiveM9)
+anova(AdjectiveM5,AdjectiveM9) #p<.001 so AdjectiveM9 is a better model
+
+# add Moral_pos Linear Fixed
+AdjectiveM10 <- update(AdjectiveM9, .~. +t1_moral_pos );summary(AdjectiveM10)
+anova(AdjectiveM9,AdjectiveM10) #p=.002 so AdjectiveM10 is a better model
+
+# add Moral_neg Linear Random
+AdjectiveM11 <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos
+                    +  (1 + t1_moral_neg|sjCode)+(1|Markertrial),data=adj_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"));summary(AdjectiveM11)
+anova(AdjectiveM10,AdjectiveM11) #p<.001 so AdjectiveM11 is a better model
+
+# add Moral_pos Linear Random
+AdjectiveM12 <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos
+                    +  (1 + t1_moral_neg + t1_moral_pos|sjCode)+(1|Markertrial),data=adj_data,REML = F, 
+          control = lmerControl(optimizer ="Nelder_Mead"));summary(AdjectiveM12)
+#is singular, so AdjectiveM11 is a better model
+
+# add Immoral_neg Quadratic Fixed
+AdjectiveM13 <- update(AdjectiveM11, .~. +t2_immoral_neg );summary(AdjectiveM13)
+anova(AdjectiveM11,AdjectiveM13) #p=.003 so AdjectiveM13 is a better model
+
+# add Immoral_pos Quadratic Fixed
+AdjectiveM14 <- update(AdjectiveM13, .~. +t2_immoral_pos );summary(AdjectiveM14)
+anova(AdjectiveM13,AdjectiveM14) #p=.39 not sig, so AdjectiveM13 is a better model
+
+# add Moral_neg Quadratic Fixed
+AdjectiveM15 <- update(AdjectiveM13, .~. +t2_moral_neg );summary(AdjectiveM15)
+anova(AdjectiveM13,AdjectiveM15) #p<.001 so AdjectiveM15 is a better model
+
+# add Moral_pos Quadratic Fixed
+AdjectiveM16 <- update(AdjectiveM15, .~. +t2_moral_pos );summary(AdjectiveM16)
+anova(AdjectiveM15,AdjectiveM16) #p=.29 not sig, so AdjectiveM15 is a better model
+
+# add Immoral_neg Quadratic Random
+AdjectiveM17 <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos                      + t2_immoral_neg + t2_moral_neg + (1 + t1_moral_neg + t2_immoral_neg|sjCode)+(1|Markertrial),
+                     data=adj_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(AdjectiveM17)
+anova(AdjectiveM15,AdjectiveM17) #p<.001 so AdjectiveM17 is a better model
+
+# add Moral_neg Quadratic Random
+AdjectiveM18 <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos                      + t2_immoral_neg + t2_moral_neg + (1 + t1_moral_neg + t2_immoral_neg + t2_moral_neg|sjCode)
+                     +(1|Markertrial),data=adj_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));
+#does not converge, so AdjectiveM17 is a better model
+
+# add Immoral_neg Cube Fixed
+AdjectiveM19 <- update(AdjectiveM17, .~. +t3_immoral_neg );summary(AdjectiveM19)
+anova(AdjectiveM17,AdjectiveM19) #p=.32 not sig so AdjectiveM17 is a better model
+
+# add Immoral_pos Cube Fixed
+AdjectiveM20 <- update(AdjectiveM17, .~. +t3_immoral_pos );summary(AdjectiveM20)
+anova(AdjectiveM17,AdjectiveM20) #p=.94 not sig so AdjectiveM17 is a better model
+
+# add Moral_neg Cube Fixed
+AdjectiveM21 <- update(AdjectiveM17, .~. +t3_moral_neg );summary(AdjectiveM21)
+anova(AdjectiveM17,AdjectiveM21) #p=.59 not sig so AdjectiveM17 is a better model
+
+# add Moral_pos Cube Fixed
+AdjectiveM22 <- update(AdjectiveM17, .~. +t3_moral_pos );summary(AdjectiveM22)
+#failed to converge, so AdjectiveM17 is the best model
+
+```
+
+```{r save the best StateAdjective model, eval=FALSE, echo=FALSE}
+save(AdjectiveM17, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjective_final_model_60sjs.RData"))
+
+```
+
+### Summary of best Model AdjectiveM17
+The best model is Model 17: StateAdjective_response ~ MoralityCondition + StateAdjectiveCondition + MoralityCondition:StateAdjectiveCondition  + t1_moral_neg + t1_moral_pos + t2_immoral_neg + t2_moral_neg + (1 + t1_moral_neg + t2_immoral_neg | sjCode) + (1 | Markertrial). This is the summary of that model.
+
+```{r}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjective_final_model_60sjs.RData"))
+
+summary(AdjectiveM17)
+```
+
+```{r StateAdjective  table, eval=FALSE, echo=FALSE, include=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(AdjectiveM17,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "State Adjective Segment",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM of State Adjective segment." )
+
+```
+
+### Post-hoc analyses
+
+```{r post-hoc explore the StateAdjective interaction, eval=TRUE}
+AdjectiveM17_emmeans_contrasts = emmeans(AdjectiveM17,specs = tukey ~ MoralityCondition * StateAdjectiveCondition, lmer.df = "satterthwaite", lmerTest.limit=56100, simple = "each", combine = T, adjust = "sidak", reverse = T);
+AdjectiveM17_emmeans_contrasts$emmeans
+AdjectiveM17_emmeans_contrasts$contrasts %>%
+     summary(infer = TRUE)
+
+```
+
+Plot of regression lines for the different State Adjectives for the Morality manipulation in the State Adjective segment:
+
+```{r figure State Adjective, eval=TRUE, echo=FALSE, fig.cap = "Figure on State Adjective segment with CI", warning=FALSE}
+emmip(AdjectiveM17,StateAdjectiveCondition~MoralityCondition, CIs = TRUE) + scale_color_manual(values=c("#009E73","#D55E00"))
+```
+
+The comparison between t1_moral_neg and t1_moral_pos is redundant since the estimates are tested against 0 and their signs differ, therefore the difference between t1_moral_neg and t1_moral_pos is also significantly different.
+
+
+# 3. Affect Reason segment
+
+## variables:
+dependent variable: AffectReason_response
+random factors: sjCode, Markertrial  
+independent variables: Morality (102=moral, 103=immoral), StateAdjectiveCondition (104=positive, 105=negative), t1_ (continuous linear trend per condition, will be centered for easier interpretation of the estimates), t2_ (continuous quadratic trend per condition, will be centered for easier interpretation of the estimates) , t3_ (continuous cubic trend per condition, will be centered for easier interpretation of the estimates)
+
+```{r load Affect Reason MLM data, eval=TRUE, echo=FALSE} 
+#load data for analysis, previous steps can be skipped.
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_for_MLM_analysis_60sjs.RData"))
+```
+
+```{r building the Affect Reason models, eval=FALSE, echo=FALSE, include=FALSE}
+#empty model
+ReasonM1<-lmer(AffectReason_response ~ (1|sjCode),data=reason_data,REML = F);summary(ReasonM1)
+ReasonM2<-lmer(AffectReason_response ~ (1|sjCode)+(1|Markertrial),data=reason_data,REML = F);summary(ReasonM2)
+anova(ReasonM1,ReasonM2) #p<.001 so ReasonM2 is a better model
+
+# add morality dimension fixed
+ReasonM3<-lmer(AffectReason_response ~ MoralityCondition +(1|sjCode)+(1|Markertrial),data=reason_data,REML = F);summary(ReasonM3)
+anova(ReasonM2,ReasonM3) #p=.67 not sig, but keep for interaction, so ReasonM3 is the new model
+
+# add state adjective condition fixed
+ReasonM4 <- update(ReasonM3, .~.+ StateAdjectiveCondition);summary(ReasonM4)
+anova(ReasonM3,ReasonM4) #p<.001 so ReasonM4 is a better model
+
+# add morality dimension*state adjective condition Fixed
+ReasonM5 <- update(ReasonM4, .~.+ MoralityCondition:StateAdjectiveCondition);summary(ReasonM5)
+anova(ReasonM4,ReasonM5) #p<.001 so ReasonM5 is a better model
+
+# add morality dimension*state adjective condition Random
+ReasonM6 <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition +   
+                 (1 + MoralityCondition:StateAdjectiveCondition|sjCode)+(1|Markertrial),data=reason_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(ReasonM6)
+#does not converge so ReasonM5 is a better model
+
+# add Immoral_neg Linear Fixed
+ReasonM7 <- update(ReasonM5, .~. +t1_immoral_neg );summary(ReasonM7)
+anova(ReasonM5,ReasonM7) #p=.07 not sig so ReasonM5 is a better model
+
+# add Immoral_pos Linear Fixed
+ReasonM8 <- update(ReasonM5, .~. +t1_immoral_pos );summary(ReasonM8)
+anova(ReasonM5,ReasonM8) #p=.78 not sig so ReasonM5 is a better model
+
+# add Moral_neg Linear Fixed
+ReasonM9 <- update(ReasonM5, .~. +t1_moral_neg );summary(ReasonM9)
+anova(ReasonM5,ReasonM9) #p=.02 so ReasonM9 is a better model
+
+# add Moral_pos Linear Fixed
+ReasonM10 <- update(ReasonM9, .~. +t1_moral_pos );summary(ReasonM10)
+anova(ReasonM9,ReasonM10) #p<.001 so ReasonM10 is a better model
+
+# add Moral_neg Linear Random
+ReasonM11 <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos + (1 + t1_moral_neg|sjCode)+(1|Markertrial),data=reason_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(ReasonM11)
+anova(ReasonM10,ReasonM11) #p<.001 so ReasonM11 is a better model
+
+# add Moral_pos Linear Random
+ReasonM12 <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos + (1 + t1_moral_neg + t1_moral_pos|sjCode)+(1|Markertrial),data=reason_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(ReasonM12)
+#is singular, so ReasonM11 is a better model
+
+# add Immoral_neg Quadratic Fixed
+ReasonM13 <- update(ReasonM11, .~. +t2_immoral_neg );summary(ReasonM13)
+anova(ReasonM11,ReasonM13) #p=.32 not sig so ReasonM11 is a better model
+
+# add Immoral_pos Quadratic Fixed
+ReasonM14 <- update(ReasonM11, .~. +t2_immoral_pos );summary(ReasonM14)
+anova(ReasonM11,ReasonM14) #p=.45 not sig so ReasonM11 is a better model
+
+# add Moral_neg Quadratic Fixed
+ReasonM15 <- update(ReasonM11, .~. +t2_moral_neg );summary(ReasonM15)
+anova(ReasonM11,ReasonM15) #p<.001 so ReasonM15 is a better model
+
+# add Moral_pos Quadratic Fixed
+ReasonM16 <- update(ReasonM15, .~. +t2_moral_pos );summary(ReasonM16)
+anova(ReasonM15,ReasonM16) #p=.27 so ReasonM15 is a better model
+
+# add Moral_neg Quadratic Random
+ReasonM17 <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos + t2_moral_neg + (1 + t1_moral_neg + t2_moral_neg|sjCode) + (1|Markertrial), data=reason_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(ReasonM17)
+#does not converge, so ReasonM15 is a better model
+
+# add Immoral_neg Cube Fixed
+ReasonM18 <- update(ReasonM15, .~. +t3_immoral_neg );summary(ReasonM18)
+anova(ReasonM15,ReasonM18) #p=.08 not sig so ReasonM15 is a better model
+
+# add Immoral_pos Cube Fixed
+ReasonM19 <- update(ReasonM15, .~. +t3_immoral_pos );summary(ReasonM19)
+anova(ReasonM15,ReasonM19) #p=.85 not sig so ReasonM15 is a better model
+
+# add Moral_neg Cube Fixed
+ReasonM20 <- update(ReasonM15, .~. +t3_moral_neg );summary(ReasonM20)
+anova(ReasonM15,ReasonM20) #p=.046 so ReasonM20 is a better model
+
+# add Moral_pos Cube Fixed
+ReasonM21 <- update(ReasonM20, .~. +t3_moral_pos );summary(ReasonM21)
+anova(ReasonM20,ReasonM21) #p=.51 so ReasonM20 is a better model
+
+# add Moral_neg Cube Random
+ReasonM22 <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition + t1_moral_neg + t1_moral_pos + t2_moral_neg + t3_moral_neg + (1 + t1_moral_neg + t3_moral_neg|sjCode) + (1|Markertrial), data=reason_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(ReasonM22)
+anova(ReasonM20,ReasonM22) #p<.001 so ReasonM22 is the best model
+
+```
+
+```{r save the best Affect Reason model, eval=FALSE, echo=FALSE}
+save(ReasonM22, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReason_final_model_60sjs.RData"))
+
+```
+
+### Summary of best Model ReasonM22
+The best model is Model 22: AffectReason_response ~ MoralityCondition + StateAdjectiveCondition + MoralityCondition:StateAdjectiveCondition   + t1_moral_neg + t1_moral_pos + + t2_moral_neg + t3_moral_neg + (1 + t1_moral_neg + t3_moral_neg | sjCode) + (1 | Markertrial). This is the summary of that model.
+
+```{r}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReason_final_model_60sjs.RData"))
+summary(ReasonM22)
+```
+
+```{r Affect Reason  table, eval=FALSE, echo=FALSE, include=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(ReasonM22,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "Affect Reason Segment",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM of Affect Reason segment." )
+
+```
+
+### Post-hoc analyses
+
+```{r post-hoc explore the Affect Reason interaction, eval=TRUE}
+ReasonM22_emmeans_contrasts = emmeans(ReasonM22,specs = tukey ~ MoralityCondition * StateAdjectiveCondition, lmer.df = "satterthwaite", lmerTest.limit=93500, simple = "each", combine = T, adjust = "sidak", reverse = T)
+ReasonM22_emmeans_contrasts$emmeans
+ReasonM22_emmeans_contrasts$contrasts %>%
+     summary(infer = TRUE)
+
+```
+
+Plot of regression lines for the different State Adjectives for the Morality manipulation in the Affect Reason segment:
+
+```{r figure Affect Reason, eval=TRUE, echo=FALSE, fig.cap = "Figure on Affect Reason segment with CI", warning=FALSE}
+emmip(ReasonM22,StateAdjectiveCondition~MoralityCondition, CIs = TRUE) + scale_color_manual(values=c("#009E73","#D55E00"))
+```
+
+The comparison between t1_moral_neg and t1_moral_pos is redundant since the estimates are tested against 0 and their signs differ, therefore the difference between t1_moral_neg and t1_moral_pos is also significantly different.

@@ -1,0 +1,106 @@
+---
+title: "EMG4_justice_trait_data"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: 
+  #pdf_document
+  word_document:
+    reference_docx: EMG4_template.docx
+    toc: yes
+    fig_width: 5
+    fig_height: 3.5
+
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+## packages
+```{r}
+library(readxl)
+library(tidyverse)
+library(psych)
+```
+# Questionnaire 2 data
+```{r}
+
+questionnaire_2 <- read_csv(paste0(getwd(),"/Qualtrics/EMG4_Vragenlijst_2_final.csv"), show_col_types = FALSE) %>%
+  slice(-c(1, 2)) %>%
+  rename("1" = "1...21",
+         '2' = "2...22") %>% 
+  select(as.character(c(0,1:17))) %>% 
+  mutate_at(as.character(c(0,1:17)), as.numeric) %>% 
+  rename(sjCode = "0")
+
+head(questionnaire_2)
+```
+
+
+Select the questions that together measure the construct of Justice
+
+```{r justice question selection}
+justiceQs <- questionnaire_2[,-1] 
+
+# Crohnbach's alpha justice questions
+# Question 2, 12 and 13 were negatively correlated due to reverse framing. These questions were automatically reversed.
+reliability<-psych::alpha(justiceQs, check.keys=TRUE)
+reliability
+```
+The overall Cronbach's alpha is `r reliability$total$raw_alpha`, so we include all questions in our composite Justice score. We do need to reverse the scores for questions 2, 12 and 13.
+
+```{r justice dataframe, eval=FALSE}
+# for final analysis, use question 1, 3:11, 14:17, see “grouping_Justice_traits.xlsx”
+justice <- questionnaire_2[,-1] %>%
+  select(as.character(c(1,3:11,14:17)))
+
+#head(justice)
+
+#Crohnbach's alpha selected justice questions
+psych::alpha(justice)
+```
+
+```{r make justice dataframe centered}
+# create centered scores so it is clear which ratings are fair/neutral/unfair
+# But first reverse the scores for Q 2, 12 and 13
+head(questionnaire_2)
+
+questionnaire_2_centered <- questionnaire_2 %>%
+  #select(sjCode, as.character(c(1,3:11,14:17))) %>% 
+  mutate(across(c(3,13,14), ~ case_when( #column+1 because column 1 is sjCode
+    . == 1 ~ 5,
+    . == 2 ~ 4,
+    . == 3 ~ 3,
+    . == 4 ~ 2,
+    . == 5 ~ 1))) %>% 
+  mutate(across(c(2:18), ~ case_when(
+    . == 1 ~ 2,
+    . == 2 ~ 1,
+    . == 3 ~ 0,
+    . == 4 ~ -1,
+    . == 5 ~ -2)))
+head(questionnaire_2_centered)
+```
+
+dataframe with only mean rating scores (trait score) per participant
+
+```{r mean justice score for selected questions per participant}
+questionnaire_2_means <- questionnaire_2_centered %>%
+  pivot_longer(!sjCode, names_to = "Q2", values_to = "J_ratings") %>%
+  arrange(sjCode) %>% 
+  group_by(sjCode) %>%
+  summarise(J_score = mean(J_ratings))
+
+head(questionnaire_2_means)
+```
+
+```{r save dataframe with J_means, eval=FALSE}
+write_csv(questionnaire_2_means, file = paste0(getwd(),"/Qualtrics/justice_means_EMG4_final.csv"))
+```
+
+```{r check scores}
+summary(questionnaire_2_means$J_score)
+sd(questionnaire_2_means$J_score)
+```
