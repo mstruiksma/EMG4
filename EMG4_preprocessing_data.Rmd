@@ -1,0 +1,304 @@
+---
+title: "EMG4_preprocessing_data"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    toc: yes
+    fig_width: 5
+    fig_height: 3.5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+## Overview
+
+This document contains the preparation of the EMG4 data for the Multilevel analysis.
+
+```{r message=FALSE, warning=FALSE }
+library(readxl)
+library(sjPlot)
+library(tidyverse)
+```
+
+# check whole trial data
+```{r load whole trial data, echo=FALSE}
+whole_trial_data <- read_excel(paste0(getwd(), "/Matlab/results_paper/EMG4_Bin_whole_trial_60sjs.xlsx"))
+
+```
+
+check number of rows per sjCode
+```{r check nr of rows}
+# check number of rows per sjCode, should be 64, 
+# except for 2924 for whom Markertrial 32 is excluded, 
+# see data_check_preparation_notes
+table(whole_trial_data$sjCode)  
+# check number of rows/trials per Markertrial. should be max 60 for all 51 Markertrials. 
+# Could also be lower if a trial is excluded, see comment about Markertrial 32.
+table(whole_trial_data$Markertrial)  
+MissingMarkertrials <- whole_trial_data %>% 
+  select(sjCode, Markertrial) %>% 
+  group_by(Markertrial) %>% 
+  summarise(Freq = n()) %>% 
+  filter(Freq != 60)
+table(MissingMarkertrials)
+
+# check number of trials per MoralityCondition, should be max 32*60=1920 per condition
+table(whole_trial_data$MoralityCondition)  
+# check number of trials per StateAdjectiveCondition, should be max 32*60=1920 per condition
+table(whole_trial_data$StateAdjectiveCondition)  
+# Baseline should be between 500 and 2000
+table(whole_trial_data$Baseline) 
+summary(whole_trial_data$Baseline)
+
+
+# Identify a time bin with extreme outlier 
+x <- whole_trial_data %>% 
+  filter(Markertrial == 45 & MoralityCondition== 103 & StateAdjectiveCondition ==105)  %>% 
+  select(sjCode,CorrPr100ms_288)
+mean <- mean(x$CorrPr100ms_288)
+sd <- sd(x$CorrPr100ms_288)
+outlier <- x %>% 
+  filter(sjCode == 8800)
+(outlier$CorrPr100ms_288-mean)/sd
+# Participant 8800 has an extreme outlier (z=3.75) at trial 45 in time bin 288. 
+# This data point will be removed from the whole trial figures.
+
+```
+
+# Load data from all 3 segments
+
+```{r load all data,include=F, message=F}
+mor_data_raw <- read_xlsx(paste0(getwd(), "/Matlab/results_paper/EMG4_Bin_Morality_60sjs.xlsx"))
+
+adj_data_raw <- read_xlsx(paste0(getwd(),"/Matlab/results_paper/EMG4_Bin_StateAdjective_60sjs.xlsx"))
+
+reason_data_raw <- read_xlsx(paste0(getwd(),"/Matlab/results_paper/EMG4_Bin_AffectReason_60sjs.xlsx"))
+```
+
+```{r check dataframes, include=F}
+head(mor_data_raw)
+head(adj_data_raw)
+head(reason_data_raw)
+```
+
+```{r means per participant,include=F,message=F}
+mor_means <- mor_data_raw %>%
+  dplyr::select(sjCode, Markertrial, MoralityCondition, StateAdjectiveCondition, MoralityCorrPr100ms_1:MoralityCorrPr100ms_50) %>%
+  rowwise(sjCode) %>% 
+  mutate(MeanMorCorrPrTrial = mean(c_across(MoralityCorrPr100ms_1:MoralityCorrPr100ms_50))) %>% 
+  select(sjCode, Markertrial, MoralityCondition, StateAdjectiveCondition, MeanMorCorrPrTrial)
+
+adj_means <- adj_data_raw %>% 
+  dplyr::select(sjCode, Markertrial, MoralityCondition, StateAdjectiveCondition, StateAdjectiveCorrPr100ms_1:StateAdjectiveCorrPr100ms_15) %>%
+  rowwise(sjCode) %>% 
+  mutate(MeanStateAdjCorrPrTrial = mean(c_across(StateAdjectiveCorrPr100ms_1:StateAdjectiveCorrPr100ms_15))) %>% 
+  select(sjCode, Markertrial, MoralityCondition, StateAdjectiveCondition, MeanStateAdjCorrPrTrial)
+
+reason_means <- reason_data_raw %>%
+  dplyr::select(sjCode, Markertrial, MoralityCondition, StateAdjectiveCondition,   AffectReasonCorrPr100ms_1:AffectReasonCorrPr100ms_25) %>%
+  rowwise(sjCode) %>% 
+  mutate(MeanAffectReasonCorrPrTrial = mean(c_across(AffectReasonCorrPr100ms_1:AffectReasonCorrPr100ms_25))) %>% 
+  select(sjCode, Markertrial, MoralityCondition, StateAdjectiveCondition, MeanAffectReasonCorrPrTrial)
+```
+
+```{r check means dfs, include=F}
+head(mor_means)
+head(adj_means)
+head(reason_means)
+```
+
+## Scatterplot:
+<!-- each PP has 2 data points (1 mean per Morality Condition)  -->
+```{r scatterplot mean corr per participant x mor condition, fig.cap = "Participants' mean corrugator activation during the morality segment, per Morality Condition", echo=FALSE, message=F}
+mor_means %>%
+  ggplot(aes(x = as.numeric(MoralityCondition),
+           y = MeanMorCorrPrTrial)) +
+  geom_smooth(method = 'lm',
+              se = FALSE,
+              linewidth = 0.5,
+              alpha = 0.8) + # to add regression line
+  geom_smooth(method = 'lm') +  # add 95% confidence region
+  scale_x_continuous(n.breaks = 2, labels = c('Moral', 'Immoral')) +
+  scale_y_continuous(trans = 'log10', n.breaks = 8) +
+    geom_point() +
+  labs(x = "Morality Condition",
+       y = "Corrugator activity (% of baseline)")
+
+```
+
+
+## Preprocessing
+
+Preprocessing is needed to transform the data from wide to long format based on the 100ms bins for the corrugator response. 
+The relevant variables are computed for the different conditions. 
+Another MoralityValence variable is computed to estimate the final no-intercept model. 
+Furthermore, we've computed linear, quadratic and cubic time trends for each condition (moral, immoral).
+
+# 1. Morality segment
+
+```{r eval=TRUE}
+
+# convert from wide to long format for time and select only corrugator
+mor_long <- mor_data_raw %>%
+  select(!starts_with("MoralityZygoPr100ms")) %>% 
+  pivot_longer( 
+    cols = starts_with("MoralityCorrPr100ms"),
+    names_to = "time",
+    names_prefix = "MoralityCorrPr100ms_",
+    names_transform = list(time = as.integer),
+    values_to = "Morality_response"
+  )
+str(mor_long)
+
+# moral(102)* pos(104), neg(105) = 608, 710 
+# immoral(103)* pos(104), neg(105) = 712, 815
+
+# compute relevant factors for the analysis
+mor_long <- mor_long %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000)
+
+#compute linear, quadratic and cubic time in order to compute time trends per condition
+linear_time_centered <- (mor_long$time-25.5)/10
+unique(linear_time_centered)
+quadratic_time_centered <- linear_time_centered*linear_time_centered
+cubic_time_centered <- linear_time_centered*quadratic_time_centered
+
+#compute time trends per condition and filter only the included trials based on incCorr and incZygo
+mor_long_inc <- mor_long %>% 
+  mutate(t1_moral = ifelse(MoralityCondition == 102, linear_time_centered, 0)) %>%  
+  mutate(t2_moral = ifelse(MoralityCondition == 102, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral = ifelse(MoralityCondition == 102, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral = ifelse(MoralityCondition == 103, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral = ifelse(MoralityCondition == 103, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral = ifelse(MoralityCondition == 103, cubic_time_centered, 0)) %>% 
+  filter((incCorr==1)&(incZygo==1))
+
+#compute the % of data loss after baseline selection
+perc_inc_data = 100-(dim(mor_long_inc)[1]/dim(mor_long)[1])*100
+perc_inc_data
+```
+
+The baseline procedure has resulted in an exclusion of `r perc_inc_data`% of the data.
+
+```{r saving the morality data, eval=FALSE, echo=FALSE}
+# saving the long data file
+write_csv(mor_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_27-Jun-2023_60pp_preprocessed.csv"))
+
+save(mor_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_27-Jun-2023_60pp_preprocessed.RData"))
+```
+
+# 2. State Adjective segment
+
+```{r eval=FALSE}
+
+# convert from wide to long format for time and select only corrugator
+adj_long <- adj_data_raw %>%
+  dplyr::select(!starts_with("StateAdjectiveZygoPr100ms")) %>% 
+  pivot_longer( 
+    cols = starts_with("StateAdjectiveCorrPr100ms"),
+    names_to = "time",
+    names_prefix = "StateAdjectiveCorrPr100ms_",
+    names_transform = list(time = as.integer),
+    values_to = "StateAdjective_response"
+  )
+str(adj_long)
+
+# moral(102)* pos(104), neg(105) = 608, 710 
+# immoral(103)* pos(104), neg(105) = 712, 815
+
+# compute relevant factors for the analysis
+adj_long <- adj_long %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000)
+
+#compute linear, quadratic and cubic time in order to compute time trends per condition
+linear_time_centered <- (adj_long$time-8)/10
+unique(linear_time_centered)
+quadratic_time_centered <- linear_time_centered*linear_time_centered
+cubic_time_centered <- linear_time_centered*quadratic_time_centered
+
+#compute time trends per condition and filter only the included trials based on incCorr and incZygo
+adj_long_inc <- adj_long %>% 
+  mutate(t1_moral_pos = ifelse(MoralityValence == 608, linear_time_centered, 0)) %>%  
+  mutate(t2_moral_pos = ifelse(MoralityValence == 608, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral_pos = ifelse(MoralityValence == 608, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral_pos = ifelse(MoralityValence == 712, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral_pos = ifelse(MoralityValence == 712, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral_pos = ifelse(MoralityValence == 712, cubic_time_centered, 0)) %>% 
+  mutate(t1_moral_neg = ifelse(MoralityValence == 710, linear_time_centered, 0)) %>%  
+  mutate(t2_moral_neg = ifelse(MoralityValence == 710, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral_neg = ifelse(MoralityValence == 710, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral_neg = ifelse(MoralityValence == 815, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral_neg = ifelse(MoralityValence == 815, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral_neg = ifelse(MoralityValence == 815, cubic_time_centered, 0)) %>% 
+  filter((incCorr==1)&(incZygo==1))
+
+```
+
+The baseline procedure has resulted in an exclusion of `r perc_inc_data`% of the data.
+
+```{r saving the adjective data, eval=FALSE ,echo=FALSE}
+# saving the long datafile
+write_csv(adj_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_27-Jun-2023_60pp_preprocessed.csv"))
+
+save(adj_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_27-Jun-2023_60pp_preprocessed.RData"))
+```
+
+# 3. Affect Reason segment
+
+```{r eval=FALSE}
+
+# convert from wide to long format for time and select only corrugator
+reason_long <- reason_data_raw %>%
+  dplyr::select(!starts_with("AffectReasonZygoPr100ms")) %>% 
+  pivot_longer( 
+    cols = starts_with("AffectReasonCorrPr100ms"),
+    names_to = "time",
+    names_prefix = "AffectReasonCorrPr100ms_",
+    names_transform = list(time = as.integer),
+    values_to = "AffectReason_response"
+  )
+str(reason_long)
+
+# moral(102)* pos(104), neg(105) = 608, 710 
+# immoral(103)* pos(104), neg(105) = 712, 815
+
+# compute relevant factors for the analysis
+reason_long <- reason_long %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000)
+
+#compute linear, quadratic and cubic time in order to compute time trends per condition
+linear_time_centered <- (reason_long$time-13)/10
+unique(linear_time_centered)
+quadratic_time_centered <- linear_time_centered*linear_time_centered
+cubic_time_centered <- linear_time_centered*quadratic_time_centered
+
+#compute time trends per condition and filter only the included trials based on incCorr and incZygo
+reason_long_inc <- reason_long %>% 
+  mutate(t1_moral_pos = ifelse(MoralityValence == 608, linear_time_centered, 0)) %>%  
+  mutate(t2_moral_pos = ifelse(MoralityValence == 608, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral_pos = ifelse(MoralityValence == 608, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral_pos = ifelse(MoralityValence == 712, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral_pos = ifelse(MoralityValence == 712, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral_pos = ifelse(MoralityValence == 712, cubic_time_centered, 0)) %>% 
+  mutate(t1_moral_neg = ifelse(MoralityValence == 710, linear_time_centered, 0)) %>%  
+  mutate(t2_moral_neg = ifelse(MoralityValence == 710, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral_neg = ifelse(MoralityValence == 710, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral_neg = ifelse(MoralityValence == 815, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral_neg = ifelse(MoralityValence == 815, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral_neg = ifelse(MoralityValence == 815, cubic_time_centered, 0)) %>% 
+  filter((incCorr==1)&(incZygo==1))
+
+```
+
+The baseline procedure has resulted in an exclusion of `r perc_inc_data`% of the data.
+
+```{r saving the reason data, eval=FALSE, echo=FALSE}
+# saving the long datafle
+write_csv(reason_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_27-Jun-2023_60pp_preprocessed.csv"))
+
+save(reason_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_27-Jun-2023_60pp_preprocessed.RData"))
+```

@@ -1,0 +1,371 @@
+---
+title: "EMG4_story_fairness_data"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    #toc: yes
+    fig_width: 6.5
+    fig_height: 3.5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+## packages
+```{r, message=FALSE}
+library(readxl)
+library(tidyverse)
+library(ggthemes)
+```
+
+# Fairness List 1
+
+```{r load raw data list 1}
+fairness1_filtered <- read_csv(paste0(getwd(),"/Qualtrics/EMG4_Vragenlijst_1.1_final.csv"), 
+                               show_col_types = FALSE) %>%
+  slice(-c(1, 2)) %>%
+  select(as.character(0:64))%>% 
+  mutate_at('0', as.factor) %>%
+  mutate_at(as.character(1:64), as.numeric) %>%
+  rename(sjCode = '0')
+
+head(fairness1_filtered)
+```
+
+```{r centered data fairness ratings list 1}
+fairness1_centered <- fairness1_filtered %>%
+  mutate(across(c(2:65), ~ case_when(
+    . == 1 ~ 3,
+    . == 2 ~ 2,
+    . == 3 ~ 1,
+    . == 4 ~ 0,
+    . == 5 ~ -1,
+    . == 6 ~  -2,
+    . == 7 ~ -3)))
+head(fairness1_centered)
+```
+
+```{r pivot fairness1}
+fairness1_centered_pivot <- fairness1_centered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)
+head(fairness1_centered_pivot)
+```
+
+```{r pivot fairness1_filtered}
+fairness1_filtered_pivot <- fairness1_filtered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_filt_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)
+head(fairness1_filtered_pivot)
+```
+
+```{r check distributions of ratings fairness 1}
+table(fairness1_filtered_pivot$F_filt_rating)
+table(fairness1_centered_pivot$F_rating)
+
+```
+
+save the questionnaire data to new csv file
+```{r save fairness ratings list 1 to new csv, eval=FALSE}
+write_csv(fairness1_centered_pivot, file = paste0(getwd(),"/Qualtrics/fairness_1_EMG4_final.csv"))
+
+```
+ 
+
+
+```{r plot fairness rating variation list 1, fig.cap = "Variation in fairness ratings within participants (List 1)", echo=FALSE}
+var_fairness_1<- ggplot(fairness1_centered_pivot, aes(x = sjCode, y = F_rating, col = sjCode)) +
+  scale_y_continuous(n.breaks = 7) +
+  theme_classic() + 
+  guides(col = "none") +
+  labs(x = "PP", y = "Fairness rating") +
+  geom_count() 
+
+var_fairness_1
+
+```
+
+
+# Fairness List 2
+
+```{r load and filter data list 2}
+fairness2_filtered <- read_csv(paste0(getwd(),"/Qualtrics/EMG4_Vragenlijst_1.2_final.csv"), show_col_types = FALSE) %>%
+  slice(-c(1, 2)) %>%
+  select(as.character(0:64))%>% 
+  mutate_at('0', as.factor) %>%
+  mutate_at(as.character(1:64), as.numeric) %>%
+  rename(sjCode = '0')
+
+head(fairness2_filtered)
+```
+
+```{r centered data fairness ratings list 2}
+fairness2_centered <- fairness2_filtered %>%
+  mutate(across(c(2:65), ~ case_when(
+    . == 1 ~ 3,
+    . == 2 ~ 2,
+    . == 3 ~ 1,
+    . == 4 ~ 0,
+    . == 5 ~ -1,
+    . == 6 ~  -2,
+    . == 7 ~ -3)))
+head(fairness2_centered)
+```
+
+```{r pivot fairness2}
+fairness2_centered_pivot <- fairness2_centered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)
+head(fairness2_centered_pivot)
+```
+```{r pivot fairness2_filtered}
+fairness2_filtered_pivot <- fairness2_filtered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_filt_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)
+head(fairness2_filtered_pivot)
+```
+
+```{r check distributions of ratings fairness 2}
+table(fairness2_filtered_pivot$F_filt_rating)
+table(fairness2_centered_pivot$F_rating)
+
+```
+
+save the questionnaire data to new csv file
+```{r save fairness ratings list 2 to new csv, eval=FALSE}
+write_csv(fairness2_centered_pivot, file = paste0(getwd(),"/Qualtrics/fairness_2_EMG4_final.csv"))
+
+```
+
+
+```{r plot list 2, fig.cap = "Variation in fairness ratings within participants (List 2)", echo=FALSE}
+var_fairness_2 <- ggplot(fairness2_centered_pivot, aes(x = sjCode, y = F_rating, col = sjCode)) +
+  scale_y_continuous(n.breaks = 7) +
+  theme_classic() + 
+  guides(col = "none") +
+  labs(x = "Participant", y = "Fairness rating") +
+  geom_count()
+
+var_fairness_2
+```
+
+# Fairness List 3
+
+```{r load raw data list 3}
+fairness3_filtered <- read_csv(paste0(getwd(),"/Qualtrics/EMG4_Vragenlijst_1.3_final.csv"), show_col_types = FALSE) %>%
+  slice(-c(1, 2)) %>%
+  select(as.character(0:64))%>% 
+  mutate_at('0', as.factor) %>%
+  mutate_at(as.character(1:64), as.numeric) %>%
+  rename(sjCode = '0')
+
+head(fairness3_filtered)
+```
+
+```{r centered data fairness ratings list 3}
+fairness3_centered <- fairness3_filtered %>%
+  mutate(across(c(2:65), ~ case_when(
+    . == 1 ~ 3,
+    . == 2 ~ 2,
+    . == 3 ~ 1,
+    . == 4 ~ 0,
+    . == 5 ~ -1,
+    . == 6 ~ -2,
+    . == 7 ~ -3)))
+head(fairness3_centered)
+```
+
+```{r pivot fairness3}
+# note: 4806 change all ratings to NA because rated everything neutral, 
+# for 7417, 8381, 8800, and 9600 the ratings from 43 and up should be changed to NA 
+# (wrong story continuance was used)
+
+fairness3_centered_pivot_old <- fairness3_centered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)
+
+fairness3_centered_pivot <- fairness3_centered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)  %>%
+  mutate(F_rating = case_when(sjCode == 4806 ~ as.numeric(NA), 
+                              sjCode == 7417 & Trial >= 43 ~ as.numeric(NA),
+                              sjCode == 8381 & Trial >= 43 ~ as.numeric(NA),
+                              sjCode == 8800 & Trial >= 43 ~ as.numeric(NA),
+                              sjCode == 9600 & Trial >= 43 ~ as.numeric(NA),
+                              TRUE ~ F_rating))
+head(fairness3_centered_pivot)
+```
+
+```{r pivot fairness3_filtered}
+fairness3_filtered_pivot_old <- fairness3_filtered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_filt_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)
+
+fairness3_filtered_pivot <- fairness3_filtered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_filt_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric)%>%
+  mutate(F_filt_rating = case_when(sjCode == 4806 ~ as.numeric(NA), 
+                              sjCode == 7417 & Trial >= 43 ~ as.numeric(NA),
+                              sjCode == 8381 & Trial >= 43 ~ as.numeric(NA),
+                              sjCode == 8800 & Trial >= 43 ~ as.numeric(NA),
+                              sjCode == 9600 & Trial >= 43 ~ as.numeric(NA),
+                              TRUE ~ F_filt_rating))
+head(fairness3_filtered_pivot)
+```
+
+```{r check distributions of ratings fairness 3}
+table(fairness3_filtered_pivot_old$F_filt_rating)
+table(fairness3_centered_pivot_old$F_rating)
+table(fairness3_filtered_pivot$F_filt_rating)
+table(fairness3_centered_pivot$F_rating)
+
+```
+
+save the questionnaire data to new csv file
+```{r save fairness ratings list 3 to new csv, eval=FALSE}
+write_csv(fairness3_centered_pivot, file = paste0(getwd(),"/Qualtrics/fairness_3_EMG4_final.csv"))
+
+```
+
+```{r plot fairness 3 rating variation, fig.cap = "Variation in fairness ratings within participants (List 3)", echo=FALSE}
+#remove the NA values before plotting
+fairness3_centered_pivot <- fairness3_centered_pivot %>%
+  filter(!is.na(F_rating))
+
+var_fairness_3 <- ggplot(fairness3_centered_pivot, aes(x = sjCode, y = F_rating, col = sjCode)) +
+  scale_y_continuous(n.breaks = 7) +
+  theme_classic() + 
+  guides(col = "none") +
+  labs(x = "Participant", y = "Fairness rating") +
+  geom_count()
+
+var_fairness_3
+```
+
+# Fairness List 4
+
+```{r load raw data list 4}
+fairness4_filtered <- read_csv(paste0(getwd(),"/Qualtrics/EMG4_Vragenlijst_1.4_final.csv")
+                               , show_col_types = FALSE) %>%
+  slice(-c(1, 2)) %>%
+  select(as.character(0:64))%>% 
+  mutate_at('0', as.factor) %>%
+  mutate_at(as.character(1:64), as.numeric) %>%
+  rename(sjCode = '0')
+
+head(fairness4_filtered)
+```
+```{r centered data fairness ratings list 4}
+fairness4_centered <- fairness4_filtered %>%
+  mutate(across(c(2:65), ~ case_when(
+    . == 1 ~ 3,
+    . == 2 ~ 2,
+    . == 3 ~ 1,
+    . == 4 ~ 0,
+    . == 5 ~ -1,
+    . == 6 ~ -2,
+    . == 7 ~ -3)))
+head(fairness4_centered)
+```
+
+```{r pivot fairness4}
+# note: for 2020, 5959, and 9080 the rating for trial 13 should be changed to NA 
+# (morality manipulation was missing)
+fairness4_centered_pivot <- fairness4_centered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric) %>%
+  mutate(F_rating = case_when(sjCode == 2020 & Trial ==13 ~ as.numeric(NA), 
+                              sjCode == 5959 & Trial ==13 ~ as.numeric(NA),
+                              sjCode == 9080 & Trial ==13 ~ as.numeric(NA),
+                              TRUE ~ F_rating))
+head(fairness4_centered_pivot)
+```
+```{r pivot fairness4_filtered}
+fairness4_filtered_pivot <- fairness4_filtered %>% 
+  pivot_longer(!sjCode, names_to = "Trial", values_to = "F_filt_rating") %>%
+  arrange(sjCode) %>%
+  mutate_at("Trial", as.numeric) %>%
+  mutate(F_filt_rating = case_when(sjCode == 2020 & Trial ==13 ~ as.numeric(NA), 
+                              sjCode == 5959 & Trial ==13 ~ as.numeric(NA),
+                              sjCode == 9080 & Trial ==13 ~ as.numeric(NA),
+                              TRUE ~ F_filt_rating))
+head(fairness4_filtered_pivot)
+```
+
+```{r check distributions of ratings fairness 4}
+table(fairness4_filtered_pivot$F_filt_rating)
+table(fairness4_centered_pivot$F_rating)
+
+```
+
+save the questionnaire data to new csv file
+```{r save fairness ratings list 4 to new csv, eval=FALSE}
+write_csv(fairness4_centered_pivot, file = paste0(getwd(),"/Qualtrics/fairness_4_EMG4_final.csv"))
+
+```
+
+```{r plot fairness 4 rating variation, fig.cap = "Variation in fairness ratings within participants (List 4)", echo=FALSE}
+#remove the NA values before plotting
+fairness4_centered_pivot <- fairness4_centered_pivot %>%
+  filter(!is.na(F_rating))
+
+var_fairness_4 <- ggplot(fairness4_centered_pivot, aes(x = sjCode, y = F_rating, col = sjCode)) +
+  scale_y_continuous(n.breaks = 7) +
+  theme_classic() + 
+  guides(col = "none") +
+  labs(x = "Participant", y = "Fairness rating") +
+  geom_count()
+
+var_fairness_4
+```
+
+# Combine all fairness data lists
+
+```{r combine all fairness data lists, message=F}
+fairness1_centered_pivot<-read_csv(paste0(getwd(), "/Qualtrics/fairness_1_EMG4_final.csv"))
+fairness2_centered_pivot<-read_csv(paste0(getwd(), "/Qualtrics/fairness_2_EMG4_final.csv"))
+fairness3_centered_pivot<-read_csv(paste0(getwd(), "/Qualtrics/fairness_3_EMG4_final.csv"))
+fairness4_centered_pivot<-read_csv(paste0(getwd(), "/Qualtrics/fairness_4_EMG4_final.csv"))
+
+
+# put all fairness data frames into list
+fairness_all <- bind_rows(fairness1_centered_pivot, fairness2_centered_pivot, fairness3_centered_pivot, fairness4_centered_pivot)
+  
+fairness_all_sorted <- bind_rows(fairness1_centered_pivot, fairness2_centered_pivot, fairness3_centered_pivot, fairness4_centered_pivot) %>% 
+  arrange(sjCode, Trial)
+
+head(fairness_all)
+```
+
+```{r combine all fairness_filtered data lists, message=F}
+# put all fairness data frames into list
+fairness_all_filtered <- bind_rows(fairness1_filtered_pivot, fairness2_filtered_pivot, fairness3_filtered_pivot, fairness4_filtered_pivot) %>% 
+  arrange(sjCode, Trial)
+
+head(fairness_all_filtered)
+```
+
+
+```{r check distributions of ratings fairness_all}
+table(fairness_all_filtered$F_filt_rating)
+table(fairness_all$F_rating)
+
+```
+
+save the fairness data to new csv file
+```{r save all fairness ratings to new csv, eval=FALSE}
+write_csv(fairness_all, file = paste0(getwd(),"/Qualtrics/fairness_all_EMG4_final.csv"))
+
+```
