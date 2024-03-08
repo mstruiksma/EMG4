@@ -159,7 +159,7 @@ The script yields four different text files, one for each segment and the whole 
 
 ### EMG4_preprocessing_data.Rmd
 
-The script prepares the EMG4 data for the Multilevel analysis. It starts with the output from Matlab (saved in xlsx) EMG4_Bin_whole_trial_60sjs_13-Mar-2023.xlsx. First we performed a number of checks, e.g. number of trials, number of participants, outliers.
+The script prepares the EMG4 data for the Multilevel analysis. It starts with the output from Matlab (saved in xlsx) EMG4_Bin_whole_trial_60sjs.xlsx. First we performed a number of checks, e.g. number of trials, number of participants, outliers.
 
 Then the results for each segment are loaded. Preprocessing is needed to transform the data from wide to long format based on the 100ms bins for the corrugator response. The relevant variables are computed for the different conditions. Another MoralityValence variable is computed for viualization purposes. Furthermore, we've computed linear, quadratic and cubic time trends for each condition (moral, immoral). Finally, the trials were filtered based on incCorr and incZygo, which was determined during the baseline selection phase. The preprocessed data is then saved for further analysis in the WORCS_EMG4/data/ folder:
 - EMG4_morality_trial_data_27-Jun-2023_60pp_preprocessed.csv
@@ -178,6 +178,10 @@ Following the preregistration we built the multilevel growth curve models for ea
 - EMG4_Morality_final_model_60sjs.RData
 - EMG4_StateAdjective_final_model_60sjs.RData
 - EMG4_AffectReason_final_model_60sjs.RData
+
+### EMG4_figures.Rmd
+
+This script produces all the figures for the paper.
 
 ### EMG4_analysis_behavioral_data.Rmd
 
