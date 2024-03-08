@@ -1,6 +1,6 @@
 # Readme <a href='https://osf.io/zcvbs/'><img src='worcs_icon.png' align="right" height="139" /></a>
 
-<!-- Please add a brief introduction to explain what the project is about    -->
+This study reports a facial electromyography experiment with participants reading short stories divided into segments while corrugator (frowning musclie) activity was measured. This repository contains all analysis scripts, as well as the (intermediate) data files. The raw data can be found in our online Yoda repository. All other experimental materials and scripts can be found on our OSF repository.
 
 ## Where do I start?
 
@@ -8,24 +8,25 @@ You can load this project in RStudio by opening the file called 'WORCS_EMG4.Rpro
 
 ## Project structure
 
-<!--  You can add rows to this table, using "|" to separate columns.         -->
-File                      | Description                      | Usage         
-------------------------- | -------------------------------- | --------------
-README.md                 | Description of project           | Human editable
-WORCS_EMG4.Rproj          | Project file                     | Loads project 
-LICENSE                   | User permissions                 | Read only     
-.worcs                    | WORCS metadata YAML              | Read only     
-preregistration.rmd       | Preregistered hypotheses         | Human editable
-prepare_data.R            | Script to process raw data       | Human editable
-manuscript/manuscript.rmd | Source code for paper            | Human editable
-manuscript/references.bib | BibTex references for manuscript | Human editable
-renv.lock                 | Reproducible R environment       | Read only     
+File                      | Description                            | Usage         
+------------------------- | -------------------------------------- | --------------
+README.md                 | Description of project                 | Human editable
+README_ANALYSIS.md        | Description of analysis process        | Human editable
+WORCS_EMG4.Rproj          | Project file                           | Loads project 
+LICENSE                   | User permissions                       | Read only     
+.worcs                    | WORCS metadata YAML                    | Read only     
+preregistration.rmd/pdf   | Preregistered hypotheses               | Human editable
+EMG4_*.rmd/pdf            | analysis scripts, see README_ANALYSIS  | Human editable
+EMG4_template.docx        | Word template for pdf knit of rmd      | Human editable
+data/                     | Folder with data for analysis          | Human editable
+images/                   | Folder with figures of manuscript      | Human editable
+results/                  | Folder with final models of analysis   | Human editable
+renv.lock                 | Reproducible R environment             | Read only     
 
-<!--  You can consider adding the following to this file:                    -->
-<!--  * A citation reference for your project                                -->
-<!--  * Contact information for questions/comments                           -->
-<!--  * How people can offer to contribute to the project                    -->
-<!--  * A contributor code of conduct, https://www.contributor-covenant.org/ -->
+
+To cite this project, please visit our OSF repository: DOI
+
+For any questions about this project, please contact Marijn Struiksma.
 
 # Reproducibility
 
@@ -44,6 +45,4 @@ read the preprint at https://osf.io/zcvbs/
 ## WORCS: Advice for readers
 
 Please refer to the vignette on [reproducing a WORCS project]() for step by step advice.
-<!-- If your project deviates from the steps outlined in the vignette on     -->
-<!-- reproducing a WORCS project, please provide your own advice for         -->
-<!-- readers here.                                                           -->
+                                                          -->
