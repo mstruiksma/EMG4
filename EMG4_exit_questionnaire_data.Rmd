@@ -1,0 +1,147 @@
+---
+title: "EMG4_exit_questionnaire_data"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+# packages
+```{r}
+library(readxl)
+library(tidyverse)
+library(ggthemes)
+```
+
+
+# Preparing file with only the relevant data from the Exit Questionnaire
+load raw data
+
+```{r load exit_data_raw}
+exit_data_raw <- read_csv("O:/Research/GW/Projects/Jvb-studentprojects/EMG4/Qualtrics/EMG4_Exit_final.csv", show_col_types = FALSE)  
+
+head(exit_data_raw)
+
+```
+
+```{r select all relevant output of exit data}
+all_exit_data <- exit_data_raw %>%
+  slice(-c(1, 2)) %>%
+  select(as.character(0:10)) %>%
+  mutate_at(as.character(c(0,1)), as.factor) %>%
+  mutate_at(as.character(c(2,3,4,6)), as.numeric) %>%
+  rename(sjCode = '0',  # renaming colomns with question numbers to relevant names
+         Gender = '1', 
+         Age = '2',
+         Difficult ='3',
+         Concentrate = '4',
+         ReadAbility = '5',
+         Sleep = '6',  # renaming colomns with question numbers to relevant names
+         EnoughSleep = '7',
+         ImmoralStories = '8', 
+         MoralStories = '9',
+         QuestionsRemarks = '10')
+
+head(all_exit_data)
+```
+
+save the questionnaire data to new csv file
+```{r save all_exit_data to new csv}
+write_csv(all_exit_data, file = paste0(getwd(),"/Qualtrics/all_exit_data_EMG4_final.csv"))
+
+
+```
+
+
+```{r subset of exit data}
+subset_exit_data <- all_exit_data %>%
+  select(sjCode, Gender, Age, Difficult, Concentrate, Sleep) %>%
+  rename(Gender_label = Gender) %>% 
+  mutate(Gender = case_when(
+    Gender_label == "1" ~ "1",
+    Gender_label == "2" ~ "0",
+    Gender_label == "15" ~ "2"))%>% 
+  mutate(Gender_label =
+           case_when(Gender_label == "1" ~ "Female",
+                     Gender_label == "2" ~ "Male",
+                     Gender_label == "15" ~ "Other")) %>%
+  relocate(Gender, .after = Gender_label)
+
+head(subset_exit_data)
+
+```
+
+
+
+Sort according to ascending sjCode
+```{r sort subset exit data}
+subset_exit_data <- subset_exit_data %>%
+  arrange(order = sjCode)
+
+head(subset_exit_data)
+
+```
+
+
+```{r write subset to file}
+write_csv(subset_exit_data, file = paste0(getwd(),"/Qualtrics/subset_exit_data_EMG4_final.csv"))
+
+```
+
+### Age
+
+```{r age summary}
+ages <- all_exit_data$Age
+summary(ages)
+sd(ages)
+```
+
+
+```{r boxplot ages}
+#pdf(file = "../figures/ages_boxplot.pdf")
+boxplot(ages, main = "Ages boxplot", ylab = "Age in years", xlab = "N = 60")
+dev.off()
+```
+
+barplot ages
+```{r barplot ages}
+age_barplot <- ggplot(all_exit_data, aes(x = Age)) +
+  geom_bar() +
+  scale_x_continuous(breaks= seq(18, 30)) +
+  scale_y_continuous(breaks = c(0:14)) +
+  labs(title = 'Age distribution participants',
+       x = 'Age (years)',
+       y = "Frequency") +
+  theme_base() 
+
+age_barplot
+```
+
+```{r, include=FALSE}
+#ggsave(file = "../images/age_barplot.png", age_barplot,
+#       width = 25, height = 15, unit = 'cm', dpi = 300)
+```
+
+
+### Gender
+
+```{r gender summary}
+gender <- factor(subset_exit_data$Gender_label)
+table(gender)
+
+```
+
+```{r genders barplot, echo=FALSE}
+barplot_genders <- ggplot(subset_exit_data, aes(x =Gender)) + 
+  geom_bar() +
+  scale_x_discrete(labels = c("Male", "Female","Other")) +
+  labs(title = 'Genders bar plot',
+       x = 'Gender',
+       y = "Frequency") +
+  theme_gray()
+barplot_genders
+```

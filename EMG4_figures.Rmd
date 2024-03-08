@@ -1,0 +1,388 @@
+---
+title: "EMG4 figures"
+author: "Marijn Struiksma"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+
+## Load packages here
+
+```{r packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readxl)
+library(ggthemes)
+library(ggplot2)
+library(modelr)
+library(lme4)
+library(lmerTest)
+library(Matrix)
+
+```
+
+
+## Specify details for figures
+
+```{r ggplot specs, echo=FALSE}
+#colorpalette
+# MoralPos, MoralNeg, ImmoralPos, ImmoralNeg
+colors_moral <- c("#969696","#252525")
+colors_moral_valence <- c("#252525","#969696","#252525","#969696")
+colors_whole_trial <- c("Moral Pos-Adj" = "#969696","Moral Neg-Adj" = "#252525","Immoral Pos-Adj" = "#969696","Immoral Neg-Adj" = "#252525")
+
+# line types
+lines_moral <- c("Moral" = "solid", "Immoral" = "dashed")
+lines_moral_valence <- c("Moral-Positive" = "solid", "Moral-Negative" = "solid", "Immoral-Positive" = "dashed", "Immoral-Negative" = "dashed")
+lines_moral_valence_reason <- c("Moral Pos-Adj" = "solid", "Moral Neg-Adj" = "solid", "Immoral Pos-Adj" = "dashed", "Immoral Neg-Adj" = "dashed")
+
+#shapes 
+shape_moral_valence <-c("triangle filled", "triangle open", "square filled", "square open")
+
+#legend labels - Morality-only
+mor_labels <- c(expression(paste("Moral character: e.g., \"Mark ", italic("slows down to avoid "), "the puddle...\"")),
+                expression(paste("Immoral character: e.g., \"Mark ", italic("accelerates through "), "the puddle...\"")))
+
+mor_fit_labels <- c(expression(paste("model fit,   Moral character: e.g., \"Mark ", italic("slows down to avoid "), "the puddle...\"")),expression(paste("model fit,   Immoral character: e.g., \"Mark ", italic("accelerates through "), "the puddle...\"")))
+
+#legend labels - Morality x Valence
+morval_labels <- c(expression(paste("model fit,   Moral-Pos: e.g., [Good Mark] ", italic("happy"))),
+                   expression(paste("model fit,   Moral-Neg: e.g., [Good Mark] ", italic("frustrated"))),
+                   expression(paste("model fit,   Immoral-Pos: e.g., [Bad Mark] ", italic("happy"))),
+                   expression(paste("model fit,   Immoral-Neg: e.g., [Bad Mark] ", italic("frustrated"))))
+
+#legend labels - Morality x Valence + Reason
+morvalreason_fit_labels <- c(expression(paste("model fit,   Immoral-Neg: e.g., [Bad Mark] \"...", italic("[frustrated ]"),                                     "[when ... ] ", italic("he runs out of petrol"), "\"")),
+                             expression(paste("model fit,   Immoral-Pos: e.g., [Bad Mark]\"...", italic("[happy ]"), 
+                                    "[when ... ] ", italic("he spots a petrol station"), "\"")),
+                             expression(paste("model fit,   Moral-Neg: e.g., [Good Mark] \"...", italic("[frustrated ]"),                                     "[when ... ] ", italic("he runs out of petrol"), "\"")),
+                             expression(paste("model fit,   Moral-Pos: e.g., [Good Mark] \"...", italic("[happy ]"),                                          "[when ... ] ", italic("he spots a petrol station"), "\"")))
+morvalreason_labels <- c(expression(paste("Moral-Pos: e.g., [Good Mark] \"...", italic("happy "),
+                                      "[when almost immediately afterwards] ", italic("he spots a petrol station"),"\"")),
+                         expression(paste("Moral-Neg: e.g., [Good Mark] \"...", italic("frustrated "),
+                                      "[when almost immediately afterwards] ", italic("he runs out of petrol"), "\"")),
+                         expression(paste("Immoral-Pos: e.g., [Bad Mark]\"...", italic("happy "),
+                                      "[when almost immediately afterwards] ", italic("he spots a petrol station"), "\"")),                          expression(paste("Immoral-Neg: e.g., [Bad Mark] \"...", italic("frustrated "),
+                                      "[when almost immediately afterwards] ", italic("he runs out of petrol"), "\"")))
+
+```
+
+## Load data here
+
+```{r import trial data, include=F}
+# load the data
+whole_trial_data <- read_excel(paste0(getwd(), "/Matlab/results_paper/EMG4_Bin_whole_trial_60sjs.xlsx"))
+
+```
+
+
+# Prepare data for figues
+
+Summarize over:
+moral(102): pos(104), neg(105) = 608, 710 
+
+immoral(103): pos(104), neg(105) = 712, 815
+
+```{r corrugator whole trial}
+whole_trial_corr <- whole_trial_data %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000)%>% 
+  mutate(CorrPr100ms_288 = replace(CorrPr100ms_288,(sjCode==8800)&(Markertrial==45),NA)) %>% #included to filter out extreme outlier
+  select(sjCode:StateAdjectiveCondition, MoralityValence, Baseline:baseCorr, CorrPr100ms_1:CorrPr100ms_580)%>% 
+  filter(incCorr==1) %>%
+  filter(incZygo==1) %>%
+  group_by(MoralityValence) %>% 
+  summarise(across(CorrPr100ms_1:CorrPr100ms_580, ~ mean(.x, na.rm = TRUE))) %>% 
+  ungroup()%>% 
+  mutate(MoralityValence = case_when(MoralityValence==608 ~ "Moral Pos-Adj", MoralityValence==710 ~ "Moral Neg-Adj",
+                                 MoralityValence==712 ~ "Immoral Pos-Adj", MoralityValence==815 ~ "Immoral Neg-Adj"))
+
+whole_trial_corr_plot <- whole_trial_corr %>% 
+  pivot_longer(
+    cols = CorrPr100ms_1:CorrPr100ms_580,
+    names_to = "timeBin",
+    names_prefix = "CorrPr100ms_",
+    values_to = "Corrugator") 
+
+whole_trial_corr_plot$timeBin <- parse_number(whole_trial_corr_plot$timeBin) 
+whole_trial_corr_plot$MoralityValence <- parse_factor(whole_trial_corr_plot$MoralityValence)
+```
+
+```{r save the corrugator plot data, eval=FALSE, echo=FALSE}
+save(whole_trial_corr_plot, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_Wole_trial_plot_data_60sjs.RData"))
+
+```
+
+
+# Whole trial
+
+```{r load plot data, eval=F, echo = F, message =F, warning =F}
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_Wole_trial_plot_data_60sjs.RData"))
+```
+
+This is the whole trial figure of the Corrugator:
+
+```{r whole trial plot, echo = F, message =F, warning =F}
+
+tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_whole_trial_60sjs.tiff"), units="cm", width=32, height=20, res=300)
+whole_trial_corr_plot %>% 
+  mutate(timeSec = timeBin/10) %>% 
+  ggplot(aes(timeSec, Corrugator))+
+  geom_line(aes(linetype=MoralityValence, color = MoralityValence), size=0.5)+
+  scale_linetype_manual(name = "test", labels=morvalreason_labels, values = lines_moral_valence_reason)+
+  scale_color_manual(name = "test", labels=morvalreason_labels, values = colors_whole_trial)+
+  guides(shape="none")+
+  scale_x_continuous(breaks = seq(0,57,2), limits = c(1,57)) +
+  scale_y_continuous(breaks = seq(100,190,10), limits = c(95,195)) +
+  labs(#title = "Corrugator Response Whole Trial",
+       x = "Time in seconds",
+       y = "Response as % of baseline") +
+  theme_classic() +
+  theme(text = element_text(family="sans"),
+        legend.position ="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 0)+
+  annotate("rect", xmin = 20.6, xmax = 25.6, ymin = 95, ymax = 195, alpha =.1) +
+  annotate("rect", xmin = 49.6, xmax = 51.1, ymin = 95, ymax = 195, alpha =.1) +
+  annotate("rect", xmin = 53.6, xmax = 56.1, ymin = 95, ymax = 195, alpha =.1) +
+  annotate("text", x = 23, y = 188, label="Character\nMorality", size = 3) +  
+  annotate("text", x = 50.3, y = 188, label="State\nAdjective", size = 3) +
+  annotate("text", x = 55, y = 188, label="Affect\nReason", size = 3) 
+dev.off()
+
+
+```
+
+# Morality
+Summarize over:
+moral(102) and immoral(103)
+
+```{r prepare data corrugator morality segment}
+# load morality trial data and final model to get predicted values
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_for_MLM_analysis_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_Morality_final_model_60sjs.RData"))
+predicted_values_morality<- modelr::add_predictions(mor_data, MoralityM12) 
+
+predicted_values_morality_plot <- predicted_values_morality %>% 
+  group_by(MoralityCondition, time) %>% 
+  summarise(Morality_response_M = mean(Morality_response), Morality_response_SD = sd(Morality_response), 
+            Morality_pred_M = mean(pred), Morality_pred_SD = sd(pred)) 
+
+```
+
+```{r save the corrugator morality data, eval=FALSE, echo=FALSE}
+save(predicted_values_morality_plot, file =
+       paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_morality_plot_data_60sjs.RData"))
+
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_morality_plot_data_60sjs.RData"))
+
+```
+
+```{r plot morality, echo = F, message =F, warning =F}
+# plot the predicted values as a line and the raw data as points
+tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_morality_pred_overlay.tiff"), units="cm", width=20, height=15, res=300)
+predicted_values_morality_plot %>%   
+  mutate(timeSec = (time-0.5)/10) %>% 
+  ggplot(aes(timeSec, Morality_pred_M))+
+  geom_line(aes(linetype=MoralityCondition, shape = MoralityCondition), size=0.5)+
+  geom_point(aes(timeSec, Morality_response_M, shape = MoralityCondition), size=0.8)+
+  scale_shape_manual(name = "test", labels=c("observed data","observed data"), values = c("square", "triangle"))+
+  scale_color_manual(name = "test", labels=mor_fit_labels)+
+  scale_linetype_manual(name = "test", labels=mor_fit_labels, values = lines_moral)+
+  scale_fill_manual(values = colors_moral)+
+  scale_x_continuous(breaks = seq(0,5,.5), limits = c(0,5)) +
+  scale_y_continuous(breaks = seq(100,180,10), limits = c(95,180))+
+  labs(#title = "Corrugator Response at Character Morality Segment",
+       x = "Time in seconds",
+       y = "Response as % of baseline")+
+  theme_classic()+   
+  theme(text = element_text(family="sans"),
+        legend.position ="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 0)
+dev.off()
+
+```
+
+# Adjective
+
+```{r prepare data corrugator adjective segment}
+# load state adjective trial data and final model to get predicted values
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_for_MLM_analysis_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjective_final_model_60sjs.RData"))
+predicted_values_adjective<- modelr::add_predictions(adj_data, AdjectiveM17) 
+
+predicted_values_adjective_plot <- predicted_values_adjective %>% 
+  group_by(MoralityValence, time) %>% 
+  summarise(StateAdjective_response_M = mean(StateAdjective_response), StateAdjective_response_SD =
+              sd(StateAdjective_response), StateAdjective_pred_M = mean(pred), StateAdjective_pred_SD = sd(pred)) 
+
+```
+
+```{r save the corrugator adjective data, eval=FALSE, echo=FALSE}
+save(predicted_values_adjective_plot, file =
+       paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_plot_data_60sjs.RData"))
+
+# load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_plot_data_60sjs.RData"))
+
+```
+
+```{r plot adjective, echo = F, message =F, warning =F}
+# plot the predicted values as a line and the raw data as points
+tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_adjective_pred_overlay.tiff"), units="cm", width=20, height=15, res=300)
+predicted_values_adjective_plot %>%   
+  mutate(timeSec = (time-0.5)/10) %>% 
+  ggplot(aes(timeSec, StateAdjective_pred_M))+
+  geom_line(aes(linetype=MoralityValence, color = MoralityValence, shape = MoralityValence), size=0.5)+
+  geom_point(aes(timeSec, StateAdjective_response_M, color = MoralityValence, shape = MoralityValence))+
+  scale_color_manual(name = "test", labels=c("observed data","observed data","observed data","observed data"), 
+                     values = colors_moral_valence)+
+  scale_shape_manual(name = "test", labels=c("observed data","observed data","observed data","observed data"), 
+                     values = shape_moral_valence)+
+  scale_linetype_manual(name = "test", labels=morval_labels, values = lines_moral_valence)+
+  scale_x_continuous(breaks = seq(0,1.6,.5), limits = c(0,1.5)) +
+  scale_y_continuous(breaks = seq(100,160,10), limits = c(95,160))+
+  labs(title = "Corrugator Response at State Adjective Segment",
+       x = "Time in seconds",
+       y = "Response as % of baseline")+
+  theme_classic()+   
+  theme(legend.position="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text.align = 0)
+dev.off()
+
+```
+# Reason
+
+```{r prepare data corrugator reason segment}
+# load affect reason trial data and final model to get predicted values
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_for_MLM_analysis_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReason_final_model_60sjs.RData"))
+predicted_values_reason<- modelr::add_predictions(reason_data, ReasonM22) 
+
+predicted_values_reason_plot <- predicted_values_reason %>% 
+  group_by(MoralityValence, time) %>% 
+  summarise(AffectReason_response_M = mean(AffectReason_response), AffectReason_response_SD =
+              sd(AffectReason_response), AffectReason_pred_M = mean(pred), AffectReason_pred_SD = sd(pred)) 
+
+```
+
+```{r save the corrugator reason data, eval=FALSE, echo=FALSE}
+save(predicted_values_reason_plot, file =
+       paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_reason_plot_data_60sjs.RData"))
+
+# load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_reason_plot_data_60sjs.RData"))
+
+```
+
+```{r plot reason, echo = F, message =F, warning =F}
+# plot the predicted values as a line and the raw data as points
+tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_reason_pred_overlay.tiff"), units="cm", width=20, height=15, res=300)
+predicted_values_reason_plot %>%   
+  mutate(timeSec = (time-0.5)/10) %>% 
+  ggplot(aes(timeSec, AffectReason_pred_M))+
+  geom_line(aes(linetype=MoralityValence, color = MoralityValence, shape = MoralityValence), size=0.5)+
+  geom_point(aes(timeSec, AffectReason_response_M, shape = MoralityValence),color = "#666666", fill = "#252525", 
+             size = 0.8)+
+  scale_color_manual(name = "test", labels=morvalreason_fit_labels, values = colors_moral_valence)+
+  scale_shape_manual(name = "test", labels=c("observed data","observed data","observed data","observed data"), 
+                     values = shape_moral_valence)+
+  scale_linetype_manual(name = "test", labels=morvalreason_fit_labels, values = lines_moral_valence)+
+  scale_x_continuous(breaks = seq(0,2.6,.5), limits = c(0,2.5)) +
+  scale_y_continuous(breaks = seq(100,160,10), limits = c(95,160))+
+  labs(title = "Corrugator Response at Affect Reason Segment",
+       x = "Time in seconds",
+       y = "Response as % of baseline")+
+  theme_classic()+   
+  theme(legend.position="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text.align = 0)
+dev.off()
+
+```
+
+# Adjective + reason
+
+```{r prepare data corrugator adjective + reason segment, eval=F, echo = F, message =F, warning =F}
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_plot_data_60sjs.RData"))
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_reason_plot_data_60sjs.RData"))
+adjective_pred_plot <- predicted_values_adjective_plot %>% 
+  mutate(timeBinAR = time+34)
+
+reason_pred_plot <- predicted_values_reason_plot %>% 
+  mutate(timeBinAR = time+74)
+
+adj_reason_corr_plot <- whole_trial_corr_plot %>% 
+  filter(timeBin<564) %>% 
+  filter(timeBin>462) %>% 
+  mutate(timeBinAR = timeBin-462) %>% 
+  mutate(MoralityValence = case_when(MoralityValence=="Moral Pos-Adj" ~ "Moral-Positive", 
+                                     MoralityValence=="Moral Neg-Adj" ~ "Moral-Negative",
+                                     MoralityValence=="Immoral Pos-Adj" ~ "Immoral-Positive", 
+                                     MoralityValence=="Immoral Neg-Adj" ~ "Immoral-Negative")) %>% 
+  full_join(y=adjective_pred_plot, by = c("timeBinAR","MoralityValence")) %>% 
+  full_join(y=reason_pred_plot, by = c("timeBinAR","MoralityValence")) %>% 
+  mutate(Corrugator_response = case_when(StateAdjective_response_M > 0 ~ StateAdjective_response_M,
+                                         AffectReason_response_M > 0 ~ AffectReason_response_M,
+                                         .default = Corrugator )) %>% 
+  relocate(Corrugator_response, .after = Corrugator)
+
+```
+
+```{r save the corrugator adjective + reason data, eval=FALSE, echo=FALSE}
+save(adj_reason_corr_plot, file =
+       paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_reason_plot_data_60sjs.RData"))
+
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_reason_plot_data_60sjs.RData"))
+
+```
+
+```{r plot adjective and reason, echo = F, message =F, warning =F}
+tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_adj_reason_pred_overlay.tiff"), units="cm", width=20, height=15, res=300)
+# Low resolution figure
+# tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_adj_reason_pred_overlay_lowres.tiff"), units="cm", width=20, height=15, res=150)
+adj_reason_corr_plot %>%   
+  mutate(timeSec = (timeBinAR+0.5)/10) %>% 
+  ggplot(aes(timeSec, StateAdjective_pred_M))+
+  geom_line(aes(linetype=MoralityValence, color = MoralityValence, shape = MoralityValence), size=0.5)+
+  geom_point(aes(timeSec, Corrugator_response, shape = MoralityValence), color = "#666666", fill = "#252525", size = 0.8)+
+  geom_line(aes(timeSec, AffectReason_pred_M, linetype=MoralityValence, color = MoralityValence, shape = MoralityValence),
+            size=0.5)+
+  scale_color_manual(name = "test", labels=morvalreason_fit_labels, values = colors_moral_valence, 
+                     guide = guide_legend(reverse = TRUE))+
+  scale_linetype_manual(name = "test", labels=morvalreason_fit_labels, values = lines_moral_valence, 
+                        guide = guide_legend(reverse = TRUE))+
+  scale_shape_manual(name = "test", labels=c("observed data","observed data","observed data","observed data"), 
+                     values = shape_moral_valence, guide = guide_legend(reverse = TRUE))+
+  scale_x_continuous(breaks = seq(0,10,.5), limits = c(0,10)) +
+  scale_y_continuous(breaks = seq(100,160,10), limits = c(95,165))+
+  labs(#title = "Corrugator Response at Affective Event",
+       x = "Time in seconds",
+       y = "Response as % of baseline")+
+  theme_classic()+  
+  theme(text = element_text(family="sans"),
+        legend.position ="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 0)+
+  geom_vline(xintercept = c(0.25, 1.25, 1.5, 2.25, 2.5, 3.25, 3.5, 4.5, 4.75, 7.25, 7.5, 10), size=0.2, alpha = .5) +
+  annotate("rect", xmin = 3.5, xmax = 5, ymin = 95, ymax = 165, alpha = .1) +  # shaded area to show analyzed frame adjective segment
+  annotate("rect", xmin = 7.5, xmax = 10, ymin = 95, ymax = 165, alpha = .1) +  # shaded area to show analyzed frame reason segment
+  annotate("text", x = 0.8, y = 160, label="[...]", size = 3) +
+  annotate("text", x = 1.9, y = 160, label="[Name]", size = 3) +
+  annotate("text", x = 2.9, y = 160, label="[Verb]", size = 3) +
+  annotate("text", x = 4, y = 160, label="State\nAdjective", size = 3) +
+  annotate("text", x = 6, y = 160, label="[Neutral Segment]", size = 3) +  
+  annotate("text", x = 8.8, y = 160, label="Affect\nReason", size = 3) 
+dev.off()
+```

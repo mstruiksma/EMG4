@@ -1,0 +1,286 @@
+---
+title: "EMG4_analysis_behavioral_data.pdf"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    toc: yes
+    fig_width: 5
+    fig_height: 3.5
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+## R packages
+
+```{r packages, echo=F, message=F}
+library(ggthemes)
+library(ggplot2)
+library(tidyverse)
+library(readxl)
+```
+
+
+## Embedded Ratings
+
+```{r load behavioral data, include=FALSE}
+embedded_data <- read_csv(paste0(getwd(), "/Python/output_for_analysis/embedded_ratings_60sjs_20230202.csv")) %>% 
+  select(subjectcode:RT) %>% 
+  rename(sjCode=subjectcode) %>% 
+  rename(Markertrial=trialnr) %>%  
+  rename(embed_rating=rating) %>% 
+  rename(embed_RT=RT)
+head(embedded_data)
+
+```
+
+```{r checking the embedded ratings}
+# number of NA responses
+sum(is.na(embedded_data$embed_rating))
+
+table(embedded_data$embed_rating)
+
+```
+
+```{r markertrials with NA embedded ratings per participant, include=F}
+NA_ratings <- embedded_data %>%
+  select(sjCode, Markertrial, embed_rating) %>% 
+  filter(is.na(embed_rating)) %>%
+  group_by(sjCode, Markertrial) %>%
+  summarise(Freq = n())
+
+head(NA_ratings)
+```
+
+RT ratings\
+nb:remove NA values from trials with missing ratings
+
+```{r compute embedded ratings}
+embedded_ratings <- embedded_data %>%
+  select(sjCode, Markertrial, embed_rating, embed_RT) %>%  
+  filter(!is.na(embed_rating))
+head(embedded_ratings)
+```
+
+ratings per participant
+
+```{r boxplot ratings per PP, echo =F}
+boxplot_ratings_pp <- ggplot(embedded_ratings, aes(x = as.factor(sjCode), y = embed_rating)) +
+  scale_y_continuous(n.breaks = 7) +
+  theme(axis.text.x= element_text(angle = 90, vjust = 0.5)) +
+  geom_boxplot()  +
+  labs(title = "Ratings on embedded rating task per participant",
+       x = "Participant", y = "Embedded Rating") 
+boxplot_ratings_pp
+```
+
+Rating times
+
+
+```{r boxplot RT ratings per PP, echo =F}
+
+summary(embedded_ratings$embed_RT)
+
+RT_ratings_plot <- ggplot(embedded_ratings, aes(x = as.factor(sjCode), y = embed_RT)) +
+#  scale_y_continuous(n.breaks = 7) +
+  theme(axis.text.x= element_text(angle = 90, vjust = 0.5)) +
+  geom_boxplot()  +
+  labs(title = "Response times on on embedded rating task per participant",
+       x = "Participant", y = "Response time on embredded rating task (ms)") 
+RT_ratings_plot
+```
+
+# Fairness ratings
+
+```{r load fairness data}
+fairness_data <- read_csv(paste0(getwd(), "/Qualtrics/fairness_all_EMG4_final.csv")) %>% 
+  rename(fairness_rating = F_rating)
+```
+
+
+```{r checking the fairness ratings}
+# number of NA responses
+sum(is.na(fairness_data$fairness_rating))
+
+table(fairness_data$fairness_rating)
+
+```
+```{r compute fairness ratings}
+fairness_ratings <- fairness_data %>% 
+  filter(!is.na(fairness_rating))
+table(fairness_ratings$fairness_rating)
+
+```
+
+```{r boxplot fairness ratings per PP, echo =F}
+boxplot_fairness_ratings_pp <- ggplot(fairness_ratings, aes(x = as.factor(sjCode), y = fairness_rating)) +
+  scale_y_continuous(n.breaks = 7) +
+  theme(axis.text.x= element_text(angle = 90, vjust = 0.5)) +
+  geom_boxplot()  +
+  labs(title = "Ratings on fairness rating task per participant",
+       x = "Participant", y = "Fairness Rating") 
+boxplot_fairness_ratings_pp
+```
+
+# Justice scores
+
+```{r load justice data, include=FALSE}
+justice_means <- read_csv(paste0(getwd(), "/Qualtrics/justice_means_EMG4_final.csv")) %>% 
+  mutate_at("sjCode", as.numeric) %>% 
+  rename(justice_score = J_score)
+```
+
+
+```{r checking the justice scores}
+# number of NA responses
+summary(justice_means$justice_score)
+
+```
+
+```{r histogram justice scores, echo =F}
+scatterplot_justice_scores <- ggplot(justice_means, aes(x = sjCode, y = justice_score)) +
+  scale_y_continuous(n.breaks = 7) +
+  # theme(axis.text.x= element_text(angle = 90, vjust = 0.5)) +
+  geom_point() +
+  labs(title = "Justice score per participant",
+       x = "Participant", y = "Justice Score") 
+scatterplot_justice_scores
+
+```
+
+```{r check justice outliers}
+justice_means_z <- justice_means %>% 
+  mutate(justice_score_z = scale(justice_means$justice_score)) 
+
+justice_means_z <- justice_means_z %>% 
+  mutate(justice_score_z = justice_means_z$justice_score_z[,1])
+
+summary(justice_means_z)
+
+hist(justice_means_z$justice_score_z, breaks = seq(-4,2, by=0.5))
+
+# finding the extreme outliers in the justice score
+justice_means_z[abs(justice_means_z$justice_score_z)>(1.98),]
+```
+
+# comprehension questions check
+check number of trials with incorrect comprehension responses per participant
+
+```{r load comprehension data, include=FALSE}
+#comprehension_exit_data_combined <- read_csv(paste0(getwd(), "/WORCS_EMG4/data/EMG4_comprehension_exit_data_combined_60sjs.csv"),show_col_types = FALSE)
+comprehension_data <- read_csv(paste0(getwd(), "/Python/output_for_analysis/comprehension_questions_60sjs_20230202.csv")) %>% 
+  select(subjectcode:correct) %>% 
+  rename(sjCode=subjectcode) %>% 
+  rename(comp_response=response) %>% 
+  rename(comp_RT=RT) %>% 
+  rename(comp_correct=correct)
+head(comprehension_data)
+
+```
+
+```{r Checking the comprehension questions, include=T}
+# check how many questions were correct (1) and incorrect (1)
+table(comprehension_data$comp_correct)  
+#  check comprehension questions, for keys used (1 and 7 were the response keys) 
+table(na.omit(comprehension_data$comp_response))  
+
+# check number of missed responses
+NA_questions <- comprehension_data %>%
+  select(sjCode, questionnr, comp_response) %>% 
+  filter(is.na(comp_response)) %>%
+  group_by(sjCode, questionnr) %>%
+  summarise(Freq = n())
+
+head(NA_questions) # only 6 missings
+
+# check number of erroneous key 2 used
+Resp2_questions <- comprehension_data %>%
+  select(sjCode, questionnr, comp_response) %>% 
+  filter(comp_response==2) %>%
+  group_by(sjCode, questionnr) %>%
+  summarise(Freq = n())
+
+head(Resp2_questions) # only 6 erroneous keys used
+
+# On 6 occasions a response 2 has been given, 
+# this is not a valid response and needs to be corrected to NA.
+comprehension_data_clean <- comprehension_data %>% 
+  select((sjCode:comp_correct)) %>% 
+  mutate(comp_RT = if_else(comp_response==2, NA, comp_RT))%>% 
+  mutate(comp_correct = if_else(comp_response==2, NA, comp_correct))
+
+```
+
+
+
+number and percentage of comprehension questions answered correctly per participant
+
+```{r add column percentages correct}
+corr_comp_perc <- comprehension_data_clean %>%
+  select(sjCode, comp_correct) %>%
+  group_by(sjCode) %>%
+  summarise(sum_CorrComp = sum(comp_correct, na.rm = TRUE)) %>% 
+  mutate(comp_percentage = sum_CorrComp/12*100)
+
+head(corr_comp_perc)
+
+```
+
+```{r PP with <60% correct responses}
+corr_comp_perc %>%
+  filter(comp_percentage < 60.5)
+```
+
+
+create barplot:
+
+```{r barplot comprehension questions, echo =F}
+
+barplot_corr <- ggplot(corr_comp_perc, aes(x = as.character(sjCode), y = comp_percentage, fill = comp_percentage)) +
+  geom_bar(stat = 'identity') +
+  scale_y_continuous(breaks = seq(0,100,by=5))  +
+  geom_hline(yintercept = 50, linetype = "dashed") +
+  labs(title = "Percentage of comprehension questions answered correctly per participant",
+       x = "Participant", y = "%") +
+  theme(panel.grid = element_blank(),
+        axis.text.x= element_text(angle = 90, vjust = 0.5),
+        legend.position = "none",
+        panel.grid.major.y = element_line(color = 'grey'))
+barplot_corr
+```
+
+```{r, echo=FALSE}
+
+#ggsave(file = "../figures/Barplot_corr_comp_31-08-2022.pdf", barplot_corr,
+#       width = 25, height = 15, unit = 'cm', dpi = 300)
+
+```
+
+# check RT times on comprehension questions
+
+```{r correct comprehension questions per PP}
+summary(comprehension_data_clean$comp_RT)
+
+RT_comp <- comprehension_data_clean %>%
+  drop_na() %>% 
+  arrange(comp_RT)
+
+head(RT_comp)
+```
+
+```{r}
+
+barplot_RT_comp <- ggplot(RT_comp, aes(x = as.character(sjCode), y = comp_RT)) +
+  geom_boxplot() +
+  scale_y_continuous(n.breaks = 10)  +
+  labs(title = "Response time of comprehension question answers per participant",
+       x = "Participant", y = "Response time (ms)") +
+  theme(axis.text.x= element_text(angle = 90, vjust = 0.5))
+
+barplot_RT_comp
+```
+
