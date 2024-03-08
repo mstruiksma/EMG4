@@ -1,0 +1,482 @@
+---
+title: "EMG4 exploratory analyses"
+author: "Marijn Struiksma, Li Kloostra"
+date: "`r Sys.Date()`"
+output: 
+  word_document:
+    reference_docx: EMG4_template.docx
+    toc: yes
+    fig_width: 5
+    fig_height: 3.5
+    # We created a word document to implement the html table of the LMM results. We created a pdf from the word document
+  # pdf_document:
+  #   toc: yes
+  #   fig_width: 5
+  #   fig_height: 3.5
+
+---
+
+```{r setup, eval=TRUE, echo=FALSE}
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+
+```
+
+```{r wrap-hook, eval=TRUE, echo=FALSE}
+# this code is from https://github.com/yihui/knitr-examples/blob/master/077-wrap-output.Rmd
+# used to wrap long lines of output code in the pdf
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = xfun::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+```
+
+```{r packages, echo=FALSE, message=FALSE, warning=FALSE }
+library(readxl)
+library(readr)
+library(emmeans)
+library(sjPlot)
+library(tidyverse)
+library(lme4)          # for multilevel models
+library(lmerTest)      # for p-values
+```
+
+
+## Overview
+
+This document contains the exploratory statistical analyses of the EMG4 data combined with the embedded ratings, fairness and justice scores.
+
+
+## Load preprocessed MLM EMG data
+```{r load MLM data, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE} 
+#load data for analysis.
+mor_data_raw <- read_xlsx(paste0(getwd(), "/Matlab/results_paper/EMG4_Bin_Morality_60sjs.xlsx")) %>% 
+    dplyr::select(!starts_with("MoralityZygoPr100ms")) 
+```
+
+```{r combine behavioral data with EMG data, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+
+embedded_mor_data <- read_csv(paste0(getwd(), "/Python/output_for_analysis/embedded_ratings_60sjs_20230202.csv")) %>% 
+  rename(sjCode=subjectcode) %>% 
+  rename(Markertrial=trialnr) %>%  
+  rename(embed_rating=rating) %>% 
+  rename(embed_RT=RT) %>% 
+  left_join(y = mor_data_raw, by =c("sjCode", "Markertrial")) %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000) %>% 
+  relocate(MoralityValence, .after = StateAdjectiveCondition)
+
+
+fairness_mor_data <- read_csv(paste0(getwd(), "/Qualtrics/fairness_all_EMG4_final.csv")) %>% 
+  rename(fairness_rating = F_rating)%>%
+  left_join(y = mor_data_raw, by =c("sjCode", "Trial")) %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000) %>% 
+  relocate(MoralityValence, .after = StateAdjectiveCondition)%>% 
+  dplyr::select(sjCode:MoralityValence)
+
+```
+
+# 1. Embedded Ratings
+
+For exploratory reasons, we also look at the correlation between the EMG signal at the character morality segment and the ratings on the embedded rating task. We focus on the peak of the differential effect, which occurs 3-4s after the onset of the segment. 
+The higher the rating score, the more moral the behavior was judged. So we expect to find a negative correlation, more frowning to immoral behavior (i.e. lower scores).
+
+
+```{r selecting the morality peak, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+# selecting the morality peak and remove NA responses
+
+mor_data_correlation <- embedded_mor_data %>%
+  pivot_longer( 
+    cols = starts_with("MoralityCorrPr100ms"),
+    names_to = "time",
+    names_prefix = "MoralityCorrPr100ms_",
+    names_transform = list(time = as.integer),
+    values_to = "Morality_response") %>% 
+    filter((incCorr==1)&(incZygo==1)) %>% 
+    dplyr::select(sjCode, Markertrial, time, MoralityCondition, StateAdjectiveCondition, Morality_response, embed_rating) %>%
+    filter(time > 29)%>%
+    filter(time < 41) %>% 
+    group_by(sjCode, Markertrial) %>% 
+    summarise(Morality_mean = mean(Morality_response), embed_rating = first(embed_rating))%>%
+    filter(!is.na(embed_rating))
+    
+``` 
+
+Check the normal distribution of the morality responses
+
+```{r check normality Morality EMG, fig.cap = "Q-Q plot to check normality om EMG results at the Morality segment.", eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+qqnorm(mor_data_correlation$Morality_mean, datax=T, plot.it=T)   
+
+```
+
+The averaged EMG data are not normally distributed, so we take the log transform.
+
+```{r log transform EMG data, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+mor_data_correlation_log <- mor_data_correlation %>%
+   mutate(Morality_mean_log= log10(Morality_mean))
+    
+```
+
+Plot the relation between centered embedded rating and log corrugator EMG at the peak at the Morality Segment
+
+```{r scatterplot, fig.cap = "Scatterplot between the centered embedded rating and log corrugator EMG at the peak at the Morality Segment.", eval=TRUE, echo=FALSE, message=F, warning=FALSE, message=FALSE, warning=FALSE}
+mor_data_correlation_log %>% 
+  ggplot(aes(x = embed_rating,
+           y = Morality_mean_log)) +
+    geom_smooth(method = 'lm',
+      se = FALSE,
+      color = 'black',
+      size = .5,
+      alpha = .8) + # to add regression line
+      scale_x_continuous(n.breaks=7 ) +
+    geom_point() +
+    labs(x = "Ratings (very bad - very good)",
+       y = "Corrugator activity ")
+
+```
+
+Pearson's product-moment correlation: embedded ratings and morality EMG signal
+
+```{r correlation, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+corr_embed <- with(mor_data_correlation_log, cor.test(embed_rating, Morality_mean_log) )
+corr_embed
+```
+
+There is a weak negative correlation: *r*(`r corr_embed$parameter`) = `r corr_embed$estimate`, *p* = `r corr_embed$p.value`.\
+As expected, the lower the rating, the higher the corrugator EMG activation.
+There were some NA ratings and some trials were excluded in the baseline procedure. In total there was a data loss of `r (1-((corr_embed$parameter+2)/(60*64)))*100`%.
+
+# 2. Fairness ratings
+
+With the Story Fairness rating responses we were able to explore if and how the hypothesized effect of fairness-based evaluation would be reflected in a self-report measure as evaluation for this response tends to occur on a more conscious level. Therefore, we built a linear mixed model again focused on the interaction between the fixed factors morality condition (moral, immoral) and event valence (positive, negative) and with subject and item as random effects, but now with the Story Fairness ratings as the outcome measure. Finally, we performed pairwise comparisons to investigate significant effects.
+
+A summary of the distribution and the means of the 4 conditions:
+
+```{r prepare dataframe with fairness rating, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+
+fairness_data_plot <- fairness_mor_data %>% 
+  filter(!is.na(fairness_rating))
+
+table(fairness_data_plot$fairness_rating)
+
+fairness_data_means <- fairness_data_plot %>%
+  filter(!is.na(MoralityValence)) %>% 
+  group_by(MoralityValence) %>% 
+  summarise(fairness_rating_mean = mean(fairness_rating))
+
+table(fairness_data_means$fairness_rating_mean)
+```
+
+```{r histogram fairness ratings, fig.cap = "Histogram of Fairness ratings", eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(fairness_data_plot, aes(fairness_rating)) +
+  geom_histogram()
+
+```
+
+
+```{r prepare dataframe for mlm analysis, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+fairness_data_mlm <- fairness_data_plot %>% 
+  mutate_at(c("MoralityCondition", "StateAdjectiveCondition", "MoralityValence"), as.factor) %>%
+  mutate(MoralityCondition = recode(MoralityCondition, "102" = "Moral", "103" = "Immoral")) %>%
+  mutate(StateAdjectiveCondition = recode(StateAdjectiveCondition, "104" = "Positive", "105" = "Negative")) %>% 
+  mutate(MoralityValence = recode(MoralityValence, "608" = "Moral-Positive", "710" = "Moral-Negative",
+                                  "712" = "Immoral-Positive", "815" = "Immoral-Negative"))
+
+```
+
+```{r save the dataframe for mlm analysis, eval=FALSE, echo=FALSE}
+save(fairness_data_mlm, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_fairness_trial_data_for_MLM_analysis_60sjs.RData"))
+
+```
+
+```{r plotting the fairness ratings entire data set, fig.cap = "Figure on the mean ratings per condition", eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+fairness_data_mlm_means <- fairness_data_mlm %>%
+  filter(!is.na(fairness_rating)) %>% 
+  filter(!is.na(MoralityValence)) %>% 
+  group_by(MoralityValence) %>% 
+  summarise(fairness_rating_mean = mean(fairness_rating))
+
+fairness_data_mlm_plot <- fairness_data_mlm %>% 
+  filter(!is.na(fairness_rating)) %>% 
+  filter(!is.na(MoralityValence))
+
+ggplot(fairness_data_mlm_plot, aes(x=MoralityValence, y=fairness_rating)) +
+  stat_summary()
+
+```
+
+## 2.1 Building the Fairness rating model
+
+```{r building the Fairness rating model, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_fairness_trial_data_for_MLM_analysis_60sjs.RData"))
+
+#full factorial model
+FairnessM1<-lmer(fairness_rating ~ MoralityCondition*StateAdjectiveCondition + (1|sjCode)+(1|Markertrial), data=fairness_data_mlm, REML = F);summary(FairnessM1)
+
+```
+
+```{r Faireness table, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(FairnessM1,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "Fairness Ratings",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM of Fairness Ratings." )
+
+```
+
+A combined amount of 87 ratings from 7 different participants were excluded from the analysis due to an error in the creation of the four versions of the Story Fairness Tasks (corresponding to the four versions of stimuli lists). These issues were quickly fixed so the data of all other participants was complete. Furthermore, there was 1 participant whose ratings on all 64 narratives were excluded from analysis as everything was rated as neutral. This resulted in a total data loss of `r (1-((3684)/(60*64)))*100`%.
+
+### Post-hoc analyses
+
+```{r post-hoc explore the fairness interaction, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+FairnessM1_emmeans_contrasts = emmeans(FairnessM1, specs = tukey ~ MoralityCondition * StateAdjectiveCondition, lmer.df = "satterthwaite", lmerTest.limit=3684, simple = "each", combine = T, adjust = "sidak", reverse = T)
+FairnessM1_emmeans_contrasts$emmeans
+FairnessM1_emmeans_contrasts$contrasts %>%
+     summary(infer = TRUE)
+```
+
+Plot of Fairness scores for the different State Adjectives for the Morality manipulations:
+
+```{r figure Fairness, fig.cap = "Figure on fairness scores for the different conditions.", warning=FALSE, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+colors_moral <- c("#969696","#252525")
+mor_labels <- c(expression(atop('Moral character:', paste('e.g. "Good Mark"'))),
+                expression(atop('Immoral character', paste('e.g. "Bad Mark"'))))
+val_labels <- c(expression(paste("Positive: e.g., ", italic("happy"))),
+                expression(paste("Negative: e.g., ", italic("frustrated"))))
+
+plot_fairness <- emmip(
+  FairnessM1, StateAdjectiveCondition ~ MoralityCondition, 
+  CIs = TRUE,
+  xlab = "Character Morality",
+  ylab = "Fairness Rating (unfair - fair)",
+  dotarg = list(shape = c("triangle filled", "triangle open", "square filled",  "square open"), size = 1.2),
+  CIarg = list(lwd = 4, alpha = 0.5))
+
+#tiff(paste0(getwd(), "/WORCS_EMG4/images/emmip_morality_valence_fairness.tiff"), units="cm", width=10, height=10, res=300)
+plot_fairness + 
+  scale_color_manual(values=colors_moral, labels=val_labels) +
+  guides(color = guide_legend(title = "State Adjective")) +
+  scale_x_discrete(labels=mor_labels)+
+  scale_y_continuous(breaks = seq(-3,3,1), limits = c(-3,3)) +
+  theme_classic()+
+  theme(text = element_text(family="sans"),
+        legend.position ="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 0)
+#dev.off()
+```
+
+
+# 3. Justice score
+
+## 3.0 Load final MLM models from the regular analysis
+
+```{r load data, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE} 
+#load EMG data
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_morality_trial_data_for_MLM_analysis_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_state_adjective_trial_data_for_MLM_analysis_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_affect_reason_trial_data_for_MLM_analysis_60sjs.RData"))
+
+justice_data <- read_csv(paste0(getwd(), "/Qualtrics/justice_means_EMG4_final.csv")) %>% 
+  rename(justice_score = J_score)
+
+justice_mor_data <- mor_data %>% 
+  left_join(y = justice_data, by =c("sjCode")) %>% 
+  relocate(MoralityValence, .after = StateAdjectiveCondition)
+
+justice_adj_data <- adj_data %>% 
+  left_join(y = justice_data, by =c("sjCode")) %>% 
+  relocate(MoralityValence, .after = StateAdjectiveCondition)
+
+justice_reason_data <- reason_data %>% 
+  left_join(y = justice_data, by =c("sjCode")) %>% 
+  relocate(MoralityValence, .after = StateAdjectiveCondition)
+
+```
+
+## 3.1 Justice score and EMG signal at morality segment
+
+The best model was Morality12: Morality_response ~ MoralityCondition + t1_immoral + t1_moral + t2_immoral + t3_immoral + (1 + MoralityCondition | sjCode) + (1 | Markertrial).
+We now add our justice score to that model and check whether it improves the fit.
+
+
+```{r building the Morality Justice models, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# we first run the MoralityM12 model again on the dataset that includes the justice score
+MoralityM12_js <- lmer(Morality_response ~ MoralityCondition + t1_immoral + t1_moral + t2_immoral + t3_immoral + (1 + MoralityCondition | sjCode) + (1 | Markertrial), data = justice_mor_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead"))
+
+MoralityM12_justice_score <- lmer(Morality_response ~ MoralityCondition*justice_score + t1_immoral + t1_moral + t2_immoral + t3_immoral + (1 + MoralityCondition | sjCode) + (1 | Markertrial), data = justice_mor_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead"))
+
+save(MoralityM12_justice_score, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_MoralityJustice_final_model_60sjs.RData"))
+save(MoralityM12_js, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_Morality_js_model_60sjs.RData"))
+```
+
+```{r loading and comparing the Morality Justice models, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, linewidth=100}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_MoralityJustice_final_model_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_Morality_js_model_60sjs.RData"))
+
+anova(MoralityM12_js,MoralityM12_justice_score) # p = .09, so MoralityM12_js is the better model
+
+```
+
+Adding the justice score to the MoralityM12 model does not improve the fit of the model (*p* = .09).
+
+## 3.2 Justice score and EMG signal at state adjective segment
+
+The best model is Adjective17: StateAdjective_response ~ MoralityCondition + StateAdjectiveCondition + MoralityCondition:StateAdjectiveCondition  + t1_moral_neg + t1_moral_pos + t2_immoral_neg + t2_moral_neg + (1 + t1_moral_neg + t2_immoral_neg | sjCode) + (1 | Markertrial).
+
+```{r building the StateAdjective Justice models, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# we first run the AdjectiveM17 model again on the dataset that includes the justice score
+AdjectiveM17_js <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition +  t1_moral_neg + t1_moral_pos + t2_immoral_neg + t2_moral_neg + (1 + t1_moral_neg + t2_immoral_neg | sjCode) + (1 | Markertrial), data = justice_adj_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead"))
+
+AdjectiveM17_justice_score_full <- lmer(StateAdjective_response ~ MoralityCondition*StateAdjectiveCondition*justice_score +  t1_moral_neg + t1_moral_pos + t2_immoral_neg + t2_moral_neg + (1 + t1_moral_neg + t2_immoral_neg | sjCode) + (1 | Markertrial), data = justice_adj_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead"))
+
+save(AdjectiveM17_justice_score_full, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjectiveJustice_final_model_60sjs.RData"))
+save(AdjectiveM17_js, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjective_js_model_60sjs.RData"))
+
+```
+
+```{r loading and comparing the StateAdjective Justice models, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, linewidth=100}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjectiveJustice_final_model_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_StateAdjective_js_model_60sjs.RData"))
+
+anova(AdjectiveM17_js,AdjectiveM17_justice_score_full) # p < .001, so AdjectiveM17_justice_score_full is the better model
+
+summary(AdjectiveM17_justice_score_full)
+
+# summary of justice scores to determine specific values to probe the 3-way interaction
+summary_js<-summary(justice_data$justice_score)
+```
+
+Adding the justice score to the full factorial model improves the fit.
+
+```{r State Adjective Justice table, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(AdjectiveM17_justice_score_full,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "State Adjective Segment",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM at State Adjective Segment." )
+
+```
+
+### 3.2.1 Probing the 3-way interaction 
+
+We can  probe the 3-way interaction, provided we choose specific values for the justice scores. The scores range from `r summary_js[1]` to  `r summary_js[6]`, so we choose the values from -1 till 1.5 with increments of 0.5.
+
+```{r state adjective emmeans with specific values of justice score i.e. M +/- 1SD, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+# https://stats.oarc.ucla.edu/r/seminars/interactions-r/
+# 
+
+# create a new list with 5 values of justice score and Morality and State Adjective Condition
+(mylist_adj <- list(justice_score=seq(-1,1.5, by=0.5), MoralityCondition=c("Moral","Immoral"), StateAdjectiveCondition=c("Positive","Negative")))
+
+# Passing the justice model into emmeans, specified at=mylist
+AdjectiveM17_justice_score_emmeans_contrasts = emmeans(AdjectiveM17_justice_score_full, specs = tukey ~ StateAdjectiveCondition*MoralityCondition*justice_score, at=mylist_adj, lmer.df = "satterthwaite", lmerTest.limit=56100, by=c("justice_score","MoralityCondition"), combine = T, adjust = "sidak", reverse = T);
+knitr::kable(summary(AdjectiveM17_justice_score_emmeans_contrasts$emmeans), digits =2)
+knitr::kable(summary(AdjectiveM17_justice_score_emmeans_contrasts$contrasts, infer = c(T,T)), digits = 3)
+```
+
+### 3.2.2 Plotting the 3-way interaction
+
+Plot of regression lines for the different categories of Morality and Valence.
+
+```{r Adjective_Figure on Morality Valence and justice score Adjective, fig.cap = "Figure on State Adjective segment for different justice scores", eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+AdjectiveM17_justice.df<-emmip(AdjectiveM17_justice_score_full, justice_score ~ StateAdjectiveCondition | MoralityCondition, at=mylist_adj,  CIs = TRUE, cov.reduce=range, plotit = F)
+
+img1<-emmip_ggplot(AdjectiveM17_justice.df, style = "factor", xlab = "State Adjective", ylab = expression(paste("Mean Voltage (", mu, "V)")), tlab = "Justice Score", CIarg = list(lwd = 0.5, alpha = 0.5)) 
+                   
+img1 + theme_classic()  +
+  scale_color_discrete(labels = c("-1, low justice trait","-0.5","0","+0.5","+1, high justice trait", "+1.5, higher justice trait")) + 
+  guides(colour = guide_legend(reverse=T))
+
+
+```
+
+People with high vs, low justice trait scores have different responses in the moral conditions than in the immoral conditions, as was indicated by the significant 3-way interaction (see Table 2, *b* = -18.40, *z* = 
+-5.01, *p* < 0.001). 
+
+In the moral condition the participants who scored low on the justice trait score (i.e. people who do not agree to want positive things for good people and negative things for bad people) do not show a differential response towards the positive and negative state adjectives. Participants who were indifferent, or agreed to want positive things for good people and negative things for bad people, i.e. have a higher justice score, frown more in response to negative state adjectives compared to positive state adjectives. As per our multiple-drivers model frowning at negative state adjectives for moral characters could be the net result of negative simulation and additional negative evaluation (unfair). Our justice trait score seems to influence the degree of frowning in this case, hinting at a possible attenuation of the negative evaluation.  Only participants who value a ‘sense of justice’ frown at unfair events that befall a moral character.
+
+Interestingly, in the immoral conditions all participants, irrespective of their justice score, frowned more in response to negative state adjectives than to positive state adjectives. This pattern can be explained by negative simulation rather than evaluation, as the evaluation would counteract the simulation force yielding no differential responses or even a flipped response pattern. This is clearly not the case. However, the higher the justice score, the higher the overall response was (see Table 2, *b* = 9.47, *z* = 4.12, *p* < 0.001). 
+
+
+## 3.3 Justice score and EMG signal at affect reason segment
+
+The best model is Reason22: AffectReason_response ~ MoralityCondition + StateAdjectiveCondition + MoralityCondition:StateAdjectiveCondition   + t1_moral_neg + t1_moral_pos + + t2_moral_neg + t3_moral_neg + (1 + t1_moral_neg + t3_moral_neg | sjCode) + (1 | Markertrial). 
+
+```{r building the AffectReason Justice models, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# we first run the ReasonM22 model again on the dataset that includes the justice score
+ReasonM22_js <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition   + t1_moral_neg + t1_moral_pos + + t2_moral_neg + t3_moral_neg + (1 + t1_moral_neg + t3_moral_neg | sjCode) + (1 | Markertrial), data = justice_reason_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead"))
+
+ReasonM22_justice_score_full <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition*justice_score   + t1_moral_neg + t1_moral_pos + + t2_moral_neg + t3_moral_neg + (1 + t1_moral_neg + t3_moral_neg | sjCode) + (1 | Markertrial), data = justice_reason_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead")) 
+# model failed to converge, so add full factorial of justice score of justice_score but remove t3_moral_neg random slope
+
+ReasonM22_justice_score_alt <- lmer(AffectReason_response ~ MoralityCondition*StateAdjectiveCondition*justice_score + t1_moral_neg + t1_moral_pos + + t2_moral_neg + t3_moral_neg + (1 + t1_moral_neg | sjCode) + (1 | Markertrial), data = justice_reason_data, REML=FALSE, control = lmerControl(optimizer ="Nelder_Mead")) 
+
+save(ReasonM22_justice_score_alt, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReasonJustice_final_model_60sjs.RData"))
+save(ReasonM22_js, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReason_js_model_60sjs.RData"))
+```
+
+```{r loading and comparing the AffectReason Justice models, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, linewidth=100}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReasonJustice_final_model_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_AffectReason_js_model_60sjs.RData"))
+
+anova(ReasonM22_js,ReasonM22_justice_score_alt) # p < .001, so Reason22_justice_score_alt is the better model
+
+summary(ReasonM22_justice_score_alt)
+```
+ 
+Adding the justice score to the full factorial model improves the fit.
+
+```{r Affect Reason Justice table, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(ReasonM22_justice_score_alt,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "Affect Reason Segment",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM at Affect Reason Segment." )
+
+```
+
+### 3.3.1 Probing the 3-way interaction
+
+We can  probe the 3-way interaction, provided we choose specific values for the justice scores.
+
+```{r emmeans with specific values of justice score i.e. M +/- 1SD, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+# https://stats.oarc.ucla.edu/r/seminars/interactions-r/
+
+# Passing the justice model into emmeans, specified at=mylist_adj
+ReasonM22_justice_score_emmeans_contrasts = emmeans(ReasonM22_justice_score_alt, specs = tukey ~ StateAdjectiveCondition*MoralityCondition*justice_score, at=mylist_adj, lmer.df = "satterthwaite", lmerTest.limit=93500, by=c("justice_score","MoralityCondition"), combine = T, adjust = "sidak", reverse = T);
+knitr::kable(summary(ReasonM22_justice_score_emmeans_contrasts$emmeans), digits =2)
+knitr::kable(summary(ReasonM22_justice_score_emmeans_contrasts$contrasts, infer = c(T,T)), digits = 3)
+```
+
+### 3.3.2 Plotting the 3-way interaction
+
+Plot of regression lines for the different categories of Morality and Valence.
+
+```{r Reason_Figure on Morality Valence and justice score Adjective, fig.cap = "Figure on Affect Reason segment for different justice scores", eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+ReasonM22_justice.df<-emmip(ReasonM22_justice_score_alt, justice_score ~ StateAdjectiveCondition | MoralityCondition, at=mylist_adj,  CIs = TRUE, cov.reduce=range, plotit = F)
+
+img2<-emmip_ggplot(ReasonM22_justice.df, style = "factor", xlab = "Affect Reason", ylab = expression(paste("Mean Voltage (", mu, "V)")), tlab = "Justice Score", CIarg = list(lwd = 0.5, alpha = 0.5)) 
+                   
+img2 + theme_classic()  +
+  scale_color_discrete(labels = c("-1, low justice trait","-0.5","0","+0.5","+1, high justice trait", "+1.5, higher justice trait")) + 
+  guides(colour = guide_legend(reverse=T))
+
+```
+
+People with high vs, low justice trait scores have different responses in the moral conditions than in the immoral conditions, as was indicated by the significant 3-way interaction (see Table 5, *b* = -38.40, *z* = -5.01, *p* < 0.001). 
+
+In the moral condition, similar to the responses at the state adjective, the participants who scored lowest on the justice trait score do not show a differential response towards the positive and negative state adjectives. The other participants with a higher justice score, frowned more in response to negative state adjectives compared to positive state adjectives. As per our multiple-drivers model frowning at negative state adjectives for moral characters could be the net result of negative simulation and additional negative evaluation (unfair). Our justice trait score seems to influence the degree of frowning in this case, hinting at a possible attenuation of the negative evaluation. Participants who stronger value a ‘sense of justice’ frown substantially more at unfair events that befall a moral character.
+
+Interestingly, in the immoral conditions participants, with a low to moderate justice score, frowned more in response to negative state adjectives than to positive state adjectives. This pattern can be explained by negative simulation rather than evaluation, as the evaluation would counteract the simulation force yielding no differential responses or even a flipped response pattern. This is clearly not the case. However, for participants with a higher justice score the pattern starts to flip. For the participants with the highest justice score we see that they frown more in response to positive state adjectives than negative state adjectives (see Table 7, *b* = -6.91, *t* = -3.18, *p* < 0.001). This is the pattern that we had hoped to find overall and would indicate a counteracting force of fair evaluation and negative simulation of negative events befalling an immoral character.

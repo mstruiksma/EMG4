@@ -1,0 +1,415 @@
+---
+title: "EMG4 post-hoc neutral segment analysis"
+author: "Marijn Struiksma"
+date: "`r Sys.Date()`"
+output: 
+  word_document:
+    reference_docx: EMG4_template.docx
+    toc: yes
+    fig_width: 6.5
+    fig_height: 4.5
+    # We created a word document to implement the html table of the LMM results. We created a pdf from the word document
+  # pdf_document:
+  #   toc: yes
+  #   fig_width: 5
+  #   fig_height: 3.5
+
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG4")
+```
+
+## Overview
+
+This document contains the preparation of the EMG4 data from the neutral segment for analysis. As well as the post-hoc analysis of the neutral segment in between the state adjective and affect reason segments.
+
+```{r message=FALSE, warning=FALSE }
+library(readxl)
+library(sjPlot)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+```
+
+## Load data from all 3 segments
+
+```{r load data,include=F, message=F}
+neutral_data_raw <- read_xlsx(paste0(getwd(), "/Matlab/results_paper/EMG4_Bin_Neutral_60sjs.xlsx"))
+
+```
+
+```{r check dataframes, include=F}
+head(neutral_data_raw)
+```
+
+# 1. Preprocessing Neutral segment
+
+Preprocessing is needed to transform the data from wide to long format based on the 100ms bins for the corrugator response. 
+The relevant variables are computed for the different conditions. 
+Another MoralityValence variable is computed to estimate the final no-intercept model. 
+Furthermore, we've computed linear, quadratic and cubic time trends for each condition (moral, immoral).
+
+```{r eval=FALSE, include=FALSE}
+
+# convert from wide to long format for time and select only corrugator
+neutral_long <- neutral_data_raw %>%
+  dplyr::select(!starts_with("NeutralZygoPr100ms")) %>% 
+  pivot_longer( 
+    cols = starts_with("NeutralCorrPr100ms"),
+    names_to = "time",
+    names_prefix = "NeutralCorrPr100ms_",
+    names_transform = list(time = as.integer),
+    values_to = "Neutral_response")
+str(neutral_long)
+
+# moral(102)* pos(104), neg(105) = 608, 710 
+# immoral(103)* pos(104), neg(105) = 712, 815
+
+# compute relevant factors for the analysis
+neutral_long <- neutral_long %>% 
+  mutate(MoralityValence = MoralityCondition*StateAdjectiveCondition-10000)
+
+#compute linear, quadratic and cubic time in order to compute time trends per condition
+linear_time_centered <- (neutral_long$time-13)/10
+unique(linear_time_centered)
+quadratic_time_centered <- linear_time_centered*linear_time_centered
+cubic_time_centered <- linear_time_centered*quadratic_time_centered
+
+#compute time trends per condition and filter only the included trials based on incCorr and incZygo
+neutral_long_inc <- neutral_long %>% 
+  mutate(t1_moral_pos = ifelse(MoralityValence == 608, linear_time_centered, 0)) %>%  
+  mutate(t2_moral_pos = ifelse(MoralityValence == 608, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral_pos = ifelse(MoralityValence == 608, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral_pos = ifelse(MoralityValence == 712, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral_pos = ifelse(MoralityValence == 712, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral_pos = ifelse(MoralityValence == 712, cubic_time_centered, 0)) %>% 
+  mutate(t1_moral_neg = ifelse(MoralityValence == 710, linear_time_centered, 0)) %>%  
+  mutate(t2_moral_neg = ifelse(MoralityValence == 710, quadratic_time_centered, 0)) %>%  
+  mutate(t3_moral_neg = ifelse(MoralityValence == 710, cubic_time_centered, 0)) %>% 
+  mutate(t1_immoral_neg = ifelse(MoralityValence == 815, linear_time_centered, 0)) %>%  
+  mutate(t2_immoral_neg = ifelse(MoralityValence == 815, quadratic_time_centered, 0)) %>%  
+  mutate(t3_immoral_neg = ifelse(MoralityValence == 815, cubic_time_centered, 0)) %>% 
+  filter((incCorr==1)&(incZygo==1))
+
+```
+
+```{r saving the neutral data, eval=FALSE, include=FALSE }
+# saving the long datafile
+write_csv(neutral_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_neutral_trial_data_08-Aug-2023_60pp_preprocessed.csv"))
+
+save(neutral_long_inc, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_neutral_trial_data_08-Aug-2023_60pp_preprocessed.RData"))
+```
+
+```{r create factors, eval=FALSE, echo=FALSE, include=FALSE}
+#Create factor variables:
+# moral(102)* pos(104), neg(105) = 608, 710 
+# immoral(103)* pos(104), neg(105) = 712, 815
+
+neutral_data <- neutral_long_inc %>% 
+  mutate_at(c("MoralityCondition", "StateAdjectiveCondition", "MoralityValence"), as.factor) %>%
+  mutate(MoralityCondition = recode(MoralityCondition, "102" = "Moral", "103" = "Immoral")) %>%
+  mutate(StateAdjectiveCondition = recode(StateAdjectiveCondition, "104" = "Positive", "105" = "Negative")) %>% 
+  mutate(MoralityValence = recode(MoralityValence, "608" = "Moral-Positive", "710" = "Moral-Negative",
+                                  "712" = "Immoral-Positive", "815" = "Immoral-Negative"))
+
+```
+
+```{r store mlm data, eval=FALSE, echo=FALSE, include=FALSE}
+write_csv(neutral_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_neutral_trial_data_for_MLM_analysis_60sjs.csv"))
+save(neutral_data, file = paste0(getwd(),"/WORCS_EMG4/data/EMG4_neutral_trial_data_for_MLM_analysis_60sjs.RData"))
+
+```
+
+# 2. MLM Neutral segment
+
+## Building the models
+Because our main focus was on the development of the corrugator response over time, we used a growth curve model approach (Mirman, 2015; Peck and Devore, 2008) with specific analysis designs that were optimized for assessing and comparing time trends across conditions. We first modelled participants and items as random factors. To assess the effect of our manipulations on the average activation across an entire segment, we first added morality dimension (moral vs. immoral) as a fixed factor in the model for the character manipulation segment, and morality dimension (moral vs. immoral), critical event valence (positive vs. negative) and interaction as fixed factors in the model for the affective state adjective and affect reason segments. Afterwards the interaction was added to the random part of the model as a random slope. 
+
+Next, linear, quadratic, and cubic trends will be added as covariates in the fixed part of the model, and if significantly improving the model also to the random part, see below. Time trend (e.g. linear) components will be added per condition to maintain flexibility in building the model, and to avoid forcing the model to fit, for example, a linear trend for all conditions when only one condition contains a significant linear component. All trend components will be centered to avoid correlation between trends (fixed effects final model intercepts therefore reflect the average corrugator activity across the entire segment, not the level at which corrugator activity intercepts the y-axis). By using trends up to the cubic component, we achieve some flexibility to fit responses without over-fitting or losing explanatory power (Mirman, 2015). Because we are particularly interested in temporal developments, we will add random slopes for subjects for each time trend that initially improves the model (as well as standard random intercepts for subject and item).
+
+## variables:
+dependent variable: Neutral_response
+random factors: sjCode, Markertrial  
+independent variables: Morality (102=moral, 103=immoral), StateAdjectiveCondition (104=positive, 105=negative), t1_ (continuous linear trend per condition, will be centered for easier interpretation of the estimates), t2_ (continuous quadratic trend per condition, will be centered for easier interpretation of the estimates) , t3_ (continuous cubic trend per condition, will be centered for easier interpretation of the estimates)
+
+```{r load Neutral MLM data, eval=TRUE, echo=FALSE} 
+#load data for analysis, previous steps can be skipped.
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_neutral_trial_data_for_MLM_analysis_60sjs.RData"))
+```
+
+```{r building the Neutral models, eval=FALSE, echo=TRUE, include=FALSE}
+#empty model
+NeutralM1<-lmer(Neutral_response ~ (1|sjCode),data=neutral_data,REML = F);summary(NeutralM1)
+NeutralM2<-lmer(Neutral_response ~ (1|sjCode)+(1|Markertrial),data=neutral_data,REML = F);summary(NeutralM2)
+anova(NeutralM1,NeutralM2) #p<.001 so NeutralM2 is a better model
+
+# add morality dimension fixed
+NeutralM3<-lmer(Neutral_response ~ MoralityCondition +(1|sjCode)+(1|Markertrial),data=neutral_data,REML = F);summary(NeutralM3)
+anova(NeutralM2,NeutralM3) #p<.001 sig, so NeutralM3 is a better model
+
+# add state adjective condition fixed
+NeutralM4 <- update(NeutralM3, .~.+ StateAdjectiveCondition);summary(NeutralM4)
+anova(NeutralM3,NeutralM4) #p<.001 so NeutralM4 is a better model
+
+# add morality dimension*state adjective condition Fixed
+NeutralM5 <- update(NeutralM4, .~.+ MoralityCondition:StateAdjectiveCondition);summary(NeutralM5)
+anova(NeutralM4,NeutralM5) #p<.001 so NeutralM5 is a better model
+
+# add morality dimension*state adjective condition Random
+NeutralM6 <- lmer(Neutral_response ~ MoralityCondition*StateAdjectiveCondition +   
+                 (1 + MoralityCondition:StateAdjectiveCondition|sjCode)+(1|Markertrial),data=neutral_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(NeutralM6)
+#does not converge so NeutralM5 is a better model
+
+# add Immoral_neg Linear Fixed
+NeutralM7 <- update(NeutralM5, .~. +t1_immoral_neg );summary(NeutralM7)
+anova(NeutralM5,NeutralM7) #p=.07 not sig so NeutralM5 is a better model
+
+# add Immoral_pos Linear Fixed
+NeutralM8 <- update(NeutralM5, .~. +t1_immoral_pos );summary(NeutralM8)
+anova(NeutralM5,NeutralM8) #p<.001 sig, so NeutralM8 is a better model
+
+# add Moral_neg Linear Fixed
+NeutralM9 <- update(NeutralM8, .~. +t1_moral_neg );summary(NeutralM9)
+anova(NeutralM8,NeutralM9) #p=.28 not sig so NeutralM8 is a better model
+
+# add Moral_pos Linear Fixed
+NeutralM10 <- update(NeutralM8, .~. +t1_moral_pos );summary(NeutralM10)
+anova(NeutralM8,NeutralM10) #p=.96 not sig so NeutralM8 is a better model
+
+# add Immoral_pos Linear Random
+NeutralM11 <- lmer(Neutral_response ~ MoralityCondition*StateAdjectiveCondition + t1_immoral_pos + (1 + t1_immoral_pos|sjCode)+(1|Markertrial),data=neutral_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(NeutralM11)
+anova(NeutralM10,NeutralM11) #p<.001 so NeutralM11 is a better model
+
+# add Immoral_neg Quadratic Fixed
+NeutralM12 <- update(NeutralM11, .~. +t2_immoral_neg );summary(NeutralM12)
+anova(NeutralM11,NeutralM12) #p=.11 not sig so NeutralM11 is a better model
+
+# add Immoral_pos Quadratic Fixed
+NeutralM13 <- update(NeutralM11, .~. +t2_immoral_pos );summary(NeutralM13)
+anova(NeutralM11,NeutralM13) #p=.03 sig so NeutralM13 is a better model
+
+# add Moral_neg Quadratic Fixed
+NeutralM14 <- update(NeutralM13, .~. +t2_moral_neg );summary(NeutralM14)
+anova(NeutralM13,NeutralM14) #p=.37 not sig so NeutralM13 is a better model
+
+# add Moral_pos Quadratic Fixed
+NeutralM15 <- update(NeutralM13, .~. +t2_moral_pos );summary(NeutralM15)
+anova(NeutralM13,NeutralM15) #p=.16 not sig so NeutralM13 is a better model
+
+# add Immoral_pos Quadratic Random
+NeutralM16 <- lmer(Neutral_response ~ MoralityCondition*StateAdjectiveCondition + t1_immoral_pos + t2_immoral_pos  + (1 + t1_immoral_pos + t2_immoral_pos |sjCode) + (1|Markertrial), data=neutral_data,REML = F, control = lmerControl(optimizer ="Nelder_Mead"));summary(NeutralM16)
+#does not converge, so NeutralM13 is a better model
+
+# add Immoral_neg Cube Fixed
+NeutralM17 <- update(NeutralM13, .~. +t3_immoral_neg );summary(NeutralM17)
+anova(NeutralM13,NeutralM17) #p=.52 not sig so NeutralM13 is a better model
+
+# add Immoral_pos Cube Fixed
+NeutralM18 <- update(NeutralM13, .~. +t3_immoral_pos );summary(NeutralM18)
+anova(NeutralM13,NeutralM18) #p=.96 not sig so NeutralM13 is a better model
+
+# add Moral_neg Cube Fixed
+NeutralM19 <- update(NeutralM13, .~. +t3_moral_neg );summary(NeutralM19)
+anova(NeutralM13,NeutralM19) #p=.92 not sig so NeutralM13 is a better model
+
+# add Moral_pos Cube Fixed
+NeutralM20 <- update(NeutralM13, .~. +t3_moral_pos );summary(NeutralM20)
+anova(NeutralM13,NeutralM20) #p=.84 not sig so NeutralM13 is the best model
+
+```
+
+```{r save the best Neutral model, eval=FALSE, echo=FALSE}
+save(NeutralM13, file = paste0(getwd(),"/WORCS_EMG4/results/EMG4_Neutral_final_model_60sjs.RData"))
+
+```
+
+### Summary of best Model NeutralM13
+The best model is Model 13: Neutral_response ~ MoralityCondition + StateAdjectiveCondition  + MoralityCondition:StateAdjectiveCondition + t1_immoral_pos + t2_immoral_pos + (1 + t1_immoral_pos | sjCode) + (1 | Markertrial). This is the summary of that model.
+
+```{r summary, eval=TRUE}
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_Neutral_final_model_60sjs.RData"))
+summary(NeutralM13)
+```
+
+```{r Neutral  table, eval=FALSE, echo=FALSE, include=FALSE}
+# code to generate HTML table, run manually and can be copied into manuscript
+tab_model(NeutralM13,
+          collapse.ci=TRUE, show.stat=TRUE, digits.p=3, ci.hyphen=",&nbsp;", 
+          dv.labels = "Neutral Segment",
+          show.loglik=TRUE, show.dev=TRUE, show.r2=FALSE, show.obs=FALSE,
+          show.df=TRUE, title="Summary of LMM of Neutral segment." )
+
+```
+
+### Post-hoc analyses
+
+```{r post-hoc explore the Neutral interaction, eval=TRUE}
+NeutralM13_emmeans_contrasts = emmeans(NeutralM13,specs = tukey ~ MoralityCondition * StateAdjectiveCondition, lmer.df = "satterthwaite", lmerTest.limit=93500, simple = "each", combine = T, adjust = "sidak", reverse = T)
+NeutralM13_emmeans_contrasts$emmeans
+NeutralM13_emmeans_contrasts$contrasts %>%
+     summary(infer = TRUE)
+
+```
+
+Plot of regression lines for the different State Adjectives for the Morality manipulation in the Affect Reason segment:
+
+```{r figure Neutral, eval=TRUE, echo=FALSE, fig.cap = "Figure on neutral segment with CI", warning=FALSE}
+emmip(NeutralM13,StateAdjectiveCondition~MoralityCondition, CIs = TRUE) + scale_color_manual(values=c("#009E73","#D55E00"))
+```
+
+The comparison between t1_immoral_pos and t2_immoral_pos is redundant since they refer to different time trends. However, the negative t1 component indicates a downward slope with a rise-fall pattern, as indicated by the positive t2 component.
+
+# 3. Figures
+
+```{r ggplot specs, echo=FALSE}
+#colorpalette
+# MoralPos, MoralNeg, ImmoralPos, ImmoralNeg
+colors_moral_valence <- c("Moral-Negative" = "#252525","Moral-Positive" = "#969696","Immoral-Negative" = "#252525","Immoral-Positive" = "#969696")
+
+# line types
+lines_moral_valence <- c("Moral-Positive" = "solid", "Moral-Negative" = "solid", "Immoral-Positive" = "dashed", "Immoral-Negative" = "dashed")
+
+#shapes 
+shape_moral_valence <-c("Immoral-Negative" = "triangle filled", "Immoral-Positive" = "triangle open", "Moral-Negative" = "square filled", "Moral-Positive" = "square open")
+
+#legend labels - Morality x Valence + Reason
+morvalreason_fit_labels <- c(expression(paste("model fit,   Moral-Pos: e.g., [Good Mark] \"...", italic("[happy ]"),                                          "[when ... ] ", italic("he spots a petrol station"), "\"")),
+                             expression(paste("model fit,   Moral-Neg: e.g., [Good Mark] \"...", italic("[frustrated ]"),                                     "[when ... ] ", italic("he runs out of petrol"), "\"")),
+                             expression(paste("model fit,   Immoral-Pos: e.g., [Bad Mark]\"...", italic("[happy ]"),
+                                    "[when ... ] ", italic("he spots a petrol station"), "\"")),
+                             expression(paste("model fit,   Immoral-Neg: e.g., [Bad Mark] \"...", italic("[frustrated ]"),                                     "[when ... ] ", italic("he runs out of petrol"), "\"")))
+#legend labels - Morality x Valence +neutral+  Reason
+morvalneutralreason_fit_labels <- c(expression(paste("model fit,   Immoral-Neg: e.g., [Bad Mark] \"...",
+                             italic("[frustrated ]"),"[when ... ] ", italic("he runs out of petrol"), "\"")),
+                             expression(paste("model fit,   Immoral-Pos: e.g., [Bad Mark]\"...", italic("[happy ]"),
+                                    "[when ... ] ", italic("he spots a petrol station"), "\"")),
+                             expression(paste("model fit,   Moral-Neg: e.g., [Good Mark] \"...", italic("[frustrated ]"),                                     "[when ... ] ", italic("he runs out of petrol"), "\"")),
+                             expression(paste("model fit,   Moral-Pos: e.g., [Good Mark] \"...", italic("[happy ]"),                                          "[when ... ] ", italic("he spots a petrol station"), "\"")))
+
+```
+
+## Neutral segment
+
+```{r prepare data corrugator neutral segment, echo=FALSE}
+# load state adjectiveneutral trial data and final model to get predicted values
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_neutral_trial_data_for_MLM_analysis_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/results/EMG4_Neutral_final_model_60sjs.RData"))
+predicted_values_neutral<- modelr::add_predictions(neutral_data, NeutralM13) 
+
+predicted_values_neutral_plot <- predicted_values_neutral %>% 
+  group_by(MoralityValence, time) %>% 
+  summarise(Neutral_response_M = mean(Neutral_response), Neutral_response_SD =
+              sd(Neutral_response), Neutral_pred_M = mean(pred), Neutral_pred_SD = sd(pred)) 
+
+```
+
+```{r save the corrugator neutral data, eval=FALSE, echo=FALSE}
+save(predicted_values_neutral_plot, file =
+       paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_neutral_plot_data_60sjs.RData"))
+
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_neutral_plot_data_60sjs.RData"))
+
+```
+
+
+
+```{r plot reason, echo = F, message =F, warning =F}
+# plot the predicted values as a line and the raw data as points
+tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_neutral_pred_overlay.tiff"), units="cm", width=20, height=15, res=300)
+predicted_values_neutral_plot %>%   
+  mutate(timeSec = (time-0.5)/10) %>% 
+  ggplot(aes(timeSec, Neutral_pred_M))+
+  geom_line(aes(linetype=MoralityValence, color = MoralityValence, shape = MoralityValence), size=0.5)+
+  geom_point(aes(timeSec, Neutral_response_M, shape = MoralityValence),color = "#666666", fill = "#252525", 
+             size = 0.8)+
+  scale_color_manual(name = "test", labels=morvalreason_fit_labels, values = colors_moral_valence, 
+                     guide = guide_legend(reverse = F))+
+  scale_linetype_manual(name = "test", labels=morvalreason_fit_labels, values = lines_moral_valence, 
+                     guide = guide_legend(reverse = F))+
+  scale_shape_manual(name = "test", labels=c("observed data","observed data","observed data","observed data"), 
+                     values = shape_moral_valence)+
+  scale_x_continuous(breaks = seq(0,2.6,.5), limits = c(0,2.5)) +
+  scale_y_continuous(breaks = seq(100,160,10), limits = c(95,160))+
+  labs(#title = "Corrugator Response at Neutral Segment",
+       x = "Time in seconds",
+       y = "Response as % of baseline")+
+  theme_classic()+   
+  theme(text = element_text(family="sans"),
+        legend.position ="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 0)
+dev.off()
+
+```
+
+## Adjective + neutral + reason
+
+```{r prepare data corrugator adjective + reason segment, eval=F, echo = F, message =F, warning =F}
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_plot_data_60sjs.RData"))
+#load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_reason_plot_data_60sjs.RData"))
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_reason_plot_data_60sjs.RData"))
+
+neutral_pred_plot <- predicted_values_neutral_plot %>% 
+  mutate(timeBinAR = time+49)
+
+adj_neutral_reason_corr_plot <- adj_reason_corr_plot %>% 
+  full_join(y=neutral_pred_plot, by = c("timeBinAR","MoralityValence")) %>% 
+  mutate(Corrugator_response = case_when(StateAdjective_response_M > 0 ~ StateAdjective_response_M,
+                                         AffectReason_response_M > 0 ~ AffectReason_response_M,
+                                         Neutral_response_M > 0 ~ Neutral_response_M,
+                                         .default = Corrugator ))
+
+```
+
+```{r save the corrugator adjective + neutreal + reason data, eval=FALSE, echo=FALSE}
+save(adj_neutral_reason_corr_plot, file =
+       paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_neutral_reason_plot_data_60sjs.RData"))
+
+```
+
+```{r plot adjective and reason, echo = F, message =F, warning =F}
+load(paste0(getwd(),"/WORCS_EMG4/data/EMG4_Corrugator_adjective_neutral_reason_plot_data_60sjs.RData"))
+
+#tiff(paste0(getwd(), "/WORCS_EMG4/images/corr_adj_neutral_reason_pred_overlay.tiff"), units="cm", width=20, height=15, res=300)
+adj_neutral_reason_corr_plot %>%   
+  mutate(timeSec = (timeBinAR+0.5)/10) %>% 
+  ggplot(aes(timeSec, StateAdjective_pred_M))+
+  geom_line(aes(linetype=MoralityValence, color = MoralityValence, shape = MoralityValence), size=0.5)+
+  geom_point(aes(timeSec, Corrugator_response, shape = MoralityValence), color = "#666666", fill = "#252525", size = 0.8)+
+  geom_line(aes(timeSec, AffectReason_pred_M, linetype=MoralityValence, color = MoralityValence, shape = MoralityValence),
+            size=0.5)+
+  geom_line(aes(timeSec, Neutral_pred_M, linetype=MoralityValence, color = MoralityValence, shape = MoralityValence),
+            size=0.5)+
+  scale_color_manual(name = "test", labels=morvalneutralreason_fit_labels, values = colors_moral_valence, 
+                     guide = guide_legend(reverse = T))+
+  scale_linetype_manual(name = "test", labels=morvalneutralreason_fit_labels, values = lines_moral_valence, 
+                        guide = guide_legend(reverse = T))+
+  scale_shape_manual(name = "test", labels=c("observed data","observed data","observed data","observed data"), 
+                     values = shape_moral_valence, guide = guide_legend(reverse = T))+
+  scale_x_continuous(breaks = seq(0,10,.5), limits = c(0,10)) +
+  scale_y_continuous(breaks = seq(100,160,10), limits = c(95,165))+
+  labs(title = "Corrugator Response at Affective Event",
+       x = "Time in seconds",
+       y = "Response as % of baseline")+
+  theme_classic()+   
+  theme(legend.position="bottom",
+        legend.direction = 'vertical',
+        legend.title = element_blank(),
+        legend.text.align = 0)+
+  geom_vline(xintercept = c(0.25, 1.25, 1.5, 2.25, 2.5, 3.25, 3.5, 4.5, 4.75, 7.25, 7.5, 10), size=0.2, alpha = .5) +
+  annotate("rect", xmin = 3.5, xmax = 5, ymin = 95, ymax = 165, alpha = .1) +  # shaded area to show analyzed frame adjective segment
+  annotate("rect", xmin = 7.5, xmax = 10, ymin = 95, ymax = 165, alpha = .1) +  # shaded area to show analyzed frame reason segment
+  annotate("text", x = 0.8, y = 160, label="[...]", size = 3) +
+  annotate("text", x = 1.9, y = 160, label="[Name]", size = 3) +
+  annotate("text", x = 2.9, y = 160, label="[Verb]", size = 3) +
+  annotate("text", x = 4, y = 160, label="State\nAdjective", size = 3) +
+  annotate("text", x = 6, y = 160, label="[Neutral Segment]", size = 3) +  
+  annotate("text", x = 8.8, y = 160, label="Affect\nReason", size = 3) 
+#dev.off()
+```
