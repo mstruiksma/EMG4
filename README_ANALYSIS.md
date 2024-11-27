@@ -2,28 +2,28 @@
 
 ## Data handling and preparations
 
-These are the EDF checker settings to check the triggers in the EDF+ file and compare them to the Presentation logfile.
+First the raw data from the folder Raw_before_EDF_checker on Yoda was checked. These are the EDF checker settings to check the triggers in the EDF+ file and compare them to the Presentation logfile.
 
 EDF+Checker settings (standard*): 	
-Remove illegal characters from the header of BioTrace exported EDF+ files:	check
-Fix faulty bytes in the annotations of BioTrace exported EDF+ files:	check
-First Flag:	Trigger:
-Second Flag:	('
-Replacement Char:	t
-Prefix:	Trigger:
-Postfix:	('
-Maximum:	255
-Minimum:	0
-Specific triggers to ignore (delimitor = ";"):	100; 200; 202
-Correct for Pauses in trigger onsets	check
-9 triggers	
-Error margin: 	50 ms
-*Equal Timings but Unequal Numbers:	check Remove Recording Trigger
-Equal Numbers but Unequal Timings:	-
-No exact Match was ever found:	check Add Logged Trigger
-Log file for progress logging of EDF+ Checker:	EDFChecker_log_standard.log
-Save modified from MEMORY to new files on DRIVE:	create: "checked_oldfilename.edf"
-output directory for new files:	create and map to folder named 'BVA_data_after_EDFchecker'
+- Remove illegal characters from the header of BioTrace exported EDF+ files:	check
+- Fix faulty bytes in the annotations of BioTrace exported EDF+ files:	check
+- First Flag:	Trigger:
+- Second Flag:	('
+- Replacement Char:	t
+- Prefix:	Trigger:
+- Postfix:	('
+- Maximum:	255
+- Minimum:	0
+- Specific triggers to ignore (delimitor = ";"):	100; 200; 202
+- Correct for Pauses in trigger onsets	check
+- 9 triggers	
+- Error margin: 	50 ms
+- *Equal Timings but Unequal Numbers:	check Remove Recording Trigger
+- Equal Numbers but Unequal Timings:	-
+- No exact Match was ever found:	check Add Logged Trigger
+- Log file for progress logging of EDF+ Checker:	EDFChecker_log_standard.log
+- Save modified from MEMORY to new files on DRIVE:	create: "checked_oldfilename.edf"
+- output directory for new files:	create and map to folder named 'raw_after_EDF_checker'
 
 * EDF+Checker settings (alternative): deselect ‘Remove Recording Trigger’ at ‘Equal Timigs but Unequal Numbers’ in order to retain button press triggers that were recorded closer than 50ms to another trigger, e.g., ratings or answers given almost simultaneously with the following segment or screen.
 
