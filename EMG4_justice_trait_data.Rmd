@@ -19,13 +19,13 @@ knitr::opts_knit$set(root.dir = "O:/Research/GW/Projects/Jvb-studentprojects/EMG
 ```
 
 ## packages
-```{r}
+```{r, eval=TRUE, include=FALSE, warning=FALSE}
 library(readxl)
 library(tidyverse)
 library(psych)
 ```
 # Questionnaire 2 data
-```{r}
+```{r, eval=TRUE, echo=FALSE}
 
 questionnaire_2 <- read_csv(paste0(getwd(),"/Qualtrics/EMG4_Vragenlijst_2_final.csv"), show_col_types = FALSE) %>%
   slice(-c(1, 2)) %>%
@@ -41,7 +41,7 @@ head(questionnaire_2)
 
 Select the questions that together measure the construct of Justice
 
-```{r justice question selection}
+```{r justice question selection, eval=TRUE, echo=TRUE, warning=FALSE}
 justiceQs <- questionnaire_2[,-1] 
 
 # Crohnbach's alpha justice questions
@@ -51,24 +51,12 @@ reliability
 ```
 The overall Cronbach's alpha is `r reliability$total$raw_alpha`, so we include all questions in our composite Justice score. We do need to reverse the scores for questions 2, 12 and 13.
 
-```{r justice dataframe, eval=FALSE}
-# for final analysis, use question 1, 3:11, 14:17, see “grouping_Justice_traits.xlsx”
-justice <- questionnaire_2[,-1] %>%
-  select(as.character(c(1,3:11,14:17)))
-
-#head(justice)
-
-#Crohnbach's alpha selected justice questions
-psych::alpha(justice)
-```
-
-```{r make justice dataframe centered}
+```{r make justice dataframe centered, eval=TRUE, echo=FALSE}
 # create centered scores so it is clear which ratings are fair/neutral/unfair
 # But first reverse the scores for Q 2, 12 and 13
 head(questionnaire_2)
 
 questionnaire_2_centered <- questionnaire_2 %>%
-  #select(sjCode, as.character(c(1,3:11,14:17))) %>% 
   mutate(across(c(3,13,14), ~ case_when( #column+1 because column 1 is sjCode
     . == 1 ~ 5,
     . == 2 ~ 4,
@@ -81,12 +69,12 @@ questionnaire_2_centered <- questionnaire_2 %>%
     . == 3 ~ 0,
     . == 4 ~ -1,
     . == 5 ~ -2)))
-head(questionnaire_2_centered)
+#head(questionnaire_2_centered)
 ```
 
-dataframe with only mean rating scores (trait score) per participant
+dataframe with only mean justice rating scores (trait score) per participant
 
-```{r mean justice score for selected questions per participant}
+```{r mean justice score for selected questions per participant, eval=TRUE, echo=FALSE}
 questionnaire_2_means <- questionnaire_2_centered %>%
   pivot_longer(!sjCode, names_to = "Q2", values_to = "J_ratings") %>%
   arrange(sjCode) %>% 
@@ -96,11 +84,45 @@ questionnaire_2_means <- questionnaire_2_centered %>%
 head(questionnaire_2_means)
 ```
 
-```{r save dataframe with J_means, eval=FALSE}
+```{r save dataframe with J_means, eval=FALSE, echo=FALSE}
 write_csv(questionnaire_2_means, file = paste0(getwd(),"/Qualtrics/justice_means_EMG4_final.csv"))
+
+#read_csv(paste0(getwd(),"/Qualtrics/justice_means_EMG4_final.csv"), show_col_types = FALSE)
 ```
 
 ```{r check scores}
 summary(questionnaire_2_means$J_score)
 sd(questionnaire_2_means$J_score)
 ```
+```{r histogram}
+scatterHist(questionnaire_2_means$J_score,questionnaire_2_means$sjCode)
+```
+
+```{r check for outliers}
+# https://www.reneshbedre.com/blog/find-outliers.html using Median Absolute Deviation (MAD) 
+qqnorm(questionnaire_2_means$J_score)
+# get median
+med = median(questionnaire_2_means$J_score)
+# subtract median from each value of x and get absolute deviation
+abs_dev = abs(questionnaire_2_means$J_score-med)
+# get MAD
+mad = 1.4826 * median(abs_dev)
+
+# get threshold values for outliers
+Tmin = med-(3*mad) 
+Tmax = med+(3*mad) 
+
+# find outlier
+outlier <- questionnaire_2_means$J_score[which(questionnaire_2_means$J_score < Tmin | questionnaire_2_means$J_score > Tmax)]
+```
+
+The Justice score `r outlier` is an outlier, therefore, we plot another histogram without the outlier.
+
+```{r remove outlier}
+questionnaire_2_means_no_outlier <- questionnaire_2_means %>% 
+  filter(J_score > -1)
+
+scatterHist(questionnaire_2_means_no_outlier$J_score,questionnaire_2_means_no_outlier$sjCode)
+
+```
+
