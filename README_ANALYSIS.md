@@ -187,13 +187,11 @@ This script produces all the figures for the paper.
 
 The script contains the analysis of the behavioral data. It uses the data from the previous steps. We check the distributions of the behavioral data.
 
-### EMG4_MLM_exploratory_analysis.Rmd
+### EMG4_MLM_exploratory_analysis_alljustice.Rmd
 
-The script runs additional exploratory analyses. We take the pre-processed EMG data from the morality segment and combine this with the behavioral data so all trials are included.
+The script runs additional exploratory analyses. We take the pre-processed EMG data from the morality segment and combine this with the behavioral data, so all trials are included.
 
-We compute the correlation between the peak of the morality segment response (3-4s after onset of the segment) and the embedded rating response.And we performed a multilevel analysis for the fairness responses to each story.
-
-We also analyzed the justices scores in relation to the EMG data, this analysis was part of the supplementary materials as it wasn't the main focus of our paper.
+We compute the correlation between the peak of the morality segment response (3-4s after onset of the segment) and the embedded rating response. We also analyzed the justices scores in relation to the EMG data. And we performed a multilevel analysis for the fairness responses to each story, and added the justice scores to the final model.
 
 ### EMG4_post-hoc_neutral_segment_analysis.Rmd
 
@@ -202,3 +200,4 @@ The script preprocessess the data from the neutral segment and recodes relevant 
 
 For a post-hoc analysis we build multilevel growth curve models for the segment followed by post-hoc analyses of possible interactions. The best model is stored in WORCS_EMG4/results/:
 - EMG4_Neutral_final_model_60sjs.RData
+
