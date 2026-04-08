@@ -24,7 +24,7 @@ results/                  | Folder with final models of analysis   | Human edita
 renv.lock                 | Reproducible R environment             | Read only     
 
 
-To cite this project, please visit our OSF repository: DOI
+To cite this project, please visit our OSF repository: https://doi.org/10.17605/OSF.IO/UENMR
 
 For any questions about this project, please contact Marijn Struiksma.
 
